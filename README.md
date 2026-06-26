@@ -57,6 +57,21 @@ and letting the policy select relevant historical memories. The selected source
 indices form provenance routes that guide credit assignment during the GRPO-style
 update.
 
+### Agent loop
+
+<div align="center">
+<img src="assets/agent_loop_comparison.png" width="98%" alt="ECHO rollout-time agent loop">
+</div>
+
+> **ECHO rollout-time control flow.** The agent maintains a working context, a set
+> of source-indexed memories, and the generated token segments. After each tool
+> response it writes a compact finding for the completed turn; once the context
+> budget is exceeded, it selects relevant memory records, reconstructs a bounded
+> continuation context, and records the provenance masks (selected-turn,
+> finding-token, selection-token) later reused for traceable credit assignment.
+> The final segment is always credited. See Appendix “ECHO Agent Loop” in the
+> paper for the full algorithm.
+
 ## Installation
 
 Reference environment used for the paper:
@@ -208,6 +223,33 @@ bash examples/sglang_multiturn/run_qwen3-32b_bcp_supo_4node.sh
 > training for ECHO vs. GRPO, showing the method's gains are not specific to the
 > dense backbone.
 
+### Zero-shot generalization
+
+Without any additional tuning, the BrowseComp-Plus–trained policy is evaluated
+across three out-of-domain families: Multi-Objective QA (2–16 objectives), Code
+Generation (CodeGym, LoCoBench-Agent), and Deep Information Seeking (GAIA, HLE,
+Frames). **Bold** = best, _underline_ = second-best. CA = credit assignment.
+
+**Backbone: Qwen3-32B-Instruct**
+
+| Method | 2-obj | 4-obj | 8-obj | 16-obj | MO-QA Avg | CodeGym | LoCoBench-Agent | GAIA | HLE | Frames | Avg |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| GRPO | 38.6 | 39.8 | 35.8 | 29.0 | 35.8 | 32.8 | 67.7 | _25.2_ | 8.8 | 24.8 | 33.6 |
+| SUPO | 40.9 | 36.4 | 36.4 | 34.7 | 37.1 | 35.4 | 68.1 | _25.2_ | 9.2 | 26.8 | 34.8 |
+| **ECHO** | **47.7** | _45.5_ | **41.5** | **36.1** | **42.7** | **41.4** | **70.4** | **29.1** | **11.4** | **39.1** | **40.2** |
+| ECHO w/ Top-K retrieval | **47.7** | 42.0 | _39.2_ | 27.8 | _39.2_ | _40.7_ | 69.3 | **29.1** | _10.6_ | _37.3_ | _38.2_ |
+| ECHO w/ Top-K retrieval & w/o turn summary | 40.9 | 44.3 | 35.8 | _35.5_ | 39.1 | 40.3 | 69.5 | 23.3 | 10.0 | 31.3 | 36.8 |
+| ECHO w/o traceable CA | _45.5_ | 42.0 | _39.2_ | 22.7 | 37.4 | 38.1 | 68.2 | _25.2_ | 8.8 | 30.8 | 35.6 |
+| ECHO w/ all-turn CA | _45.5_ | **47.7** | 35.2 | 27.0 | 38.8 | 34.6 | _70.1_ | 23.3 | 9.4 | 32.2 | 36.1 |
+
+**Backbone: Qwen3-30B-A3B-Instruct**
+
+| Method | 2-obj | 4-obj | 8-obj | 16-obj | MO-QA Avg | CodeGym | LoCoBench-Agent | GAIA | HLE | Frames | Avg |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| GRPO | _27.3_ | 26.1 | _27.3_ | 16.2 | 24.2 | 20.3 | _65.7_ | _23.3_ | 7.8 | _19.1_ | 25.9 |
+| SUPO | 25.0 | _30.7_ | _27.3_ | _18.2_ | _25.3_ | _27.3_ | 65.1 | _23.3_ | _8.0_ | 17.0 | _26.9_ |
+| **ECHO** | **34.1** | **36.4** | **30.1** | **18.8** | **29.9** | **29.7** | **66.8** | **24.3** | **9.2** | **25.0** | **30.5** |
+
 ## Acknowledgements
 
 ECHO is built on [verl](https://github.com/volcengine/verl) (Volcano Engine
@@ -218,7 +260,7 @@ Reinforcement Learning for LLMs). We thank the verl team and community.
 ```bibtex
 @article{echo,
   title  = {ECHO: Prune to Act, Trace to Learn with Selective Turn Memory in Agentic RL},
-  author = {Xie, Zijun and others},
+  author = {Xie, Zijun and Zheng, Binbin and others},
   year   = {2026}
 }
 ```
