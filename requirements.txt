@@ -21,7 +21,7 @@ pillow==12.1.1
 pyarrow==23.0.1
 pybind11==3.0.3
 pylatexenc==2.10
-ray[default]==2.54.1
+ray[default]==2.55.1
 tensorboard==2.20.0
 tensordict==0.10.0
 torchdata==0.11.0
