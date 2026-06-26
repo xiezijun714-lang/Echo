@@ -29,6 +29,13 @@ ECHO addresses this with two coupled ideas:
 <img src="assets/main_experiment.png" width="100%" alt="Main results on BrowseComp-Plus">
 </div>
 
+> **Figure 1 — Training dynamics on BrowseComp-Plus** (ECHO = purple, GRPO =
+> orange, SUPO = green), under an identical backbone, verifier, rollout budget,
+> and sampling configuration. **Left:** held-out pass@1 accuracy over training.
+> **Middle:** average tool-use turns per rollout. **Right:** trajectory volume
+> (total generated tokens) per rollout. ECHO traces the upper-left frontier —
+> rising accuracy *without* the turn and volume growth seen for SUPO.
+
 On BrowseComp-Plus, ECHO reaches **43.4%** held-out accuracy, outperforming GRPO
 (28.9%) and the rolling-summary baseline SUPO (36.1%), while using fewer turns and
 lower trajectory volume than SUPO. The trained policy also improves zero-shot
@@ -98,8 +105,22 @@ export DATA_DIR=/path/to/browsecomp-plus-processed  # contains *.paper.parquet
 
 # Optional services / accounts
 export WANDB_API_KEY=...   export WANDB_ENTITY=...   # if using Weights & Biases
-export ONEAPI_KEY=...                                # LLM-judge reward API key
 ```
+
+**LLM-judge reward.** The reward function (`verl/utils/reward_score/bc_p_llm_judge.py`)
+scores answers with an OpenAI-compatible chat-completions endpoint. Point it at any
+compatible API (OpenAI, DeepSeek, a self-hosted vLLM/SGLang server, etc.) via:
+
+```bash
+export BCP_JUDGE_API_BASE="https://api.openai.com/v1"   # any OpenAI-compatible base URL
+export BCP_JUDGE_MODEL="gpt-4o-mini"                     # judge model name on that endpoint
+export BCP_JUDGE_API_KEY_ENV="OPENAI_API_KEY"           # name of the env var holding the key
+export OPENAI_API_KEY="sk-..."                          # the key itself (name must match above)
+```
+
+The script reads the key from the environment variable named by
+`BCP_JUDGE_API_KEY_ENV` (default `ONEAPI_KEY`) and fails fast if it is unset, so
+there are no hardcoded credentials. Use your own provider and key.
 
 For multi-node runs, the node list is resolved by `bcp_node_utils.sh` from
 `TRAINER_IPS` (or the cluster-provided `PADDLE_TRAINERS`).
@@ -112,6 +133,7 @@ Available scripts in `examples/sglang_multiturn/`:
 - `run_qwen3-32b_bcp_grpo_fully_async_4node.sh` — GRPO baseline (fully async)
 - `run_qwen3-30b-a3b_bcp_echo-ca_fully_async_4node.sh` — ECHO on the MoE backbone
 - `run_qwen3-30b-a3b_bcp_grpo_fully_async_4node.sh` — GRPO on the MoE backbone
+- `run_qwen3-32b_bcp_supo_4node.sh` — SUPO rolling-summary baseline (synchronous)
 
 Run from the project root, e.g.:
 
@@ -119,22 +141,72 @@ Run from the project root, e.g.:
 bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
 ```
 
-Ablation variants (e.g. different context-compression methods or credit-assignment
-settings) reuse the same core scripts and are selected through environment
-variables — for example `CONTEXT_COMPRESSION_METHOD`, `ECHO_CREDIT_METHOD`,
-`ECHO_RECENT_TURNS`, and `WORKING_CONTEXT_LENGTH`. See the top of each script for
-the full list of tunable variables.
+### Reproducing ablations
+
+Ablation variants reuse the same core scripts and are toggled through environment
+variables (see the top of each script for the full list). Key knobs:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `CONTEXT_COMPRESSION_METHOD` | `echo_e2e` | Context reconstruction strategy: `echo_e2e` (learned selection), `semantic_selection` (static top-k retrieval), `truncate` (left-truncation), `summarize` (SUPO rolling summary) |
+| `ECHO_CREDIT_METHOD` | `token` | Credit routing: `token` (provenance-guided, ECHO), `traj` (trajectory-level), `none` (dense, all tokens) |
+| `ECHO_RECENT_TURNS` | `3` | Number of most-recent turns always kept during reconstruction |
+| `WORKING_CONTEXT_LENGTH` | `32768` | Single-segment token threshold that triggers compression |
+| `MAX_SUMMARY_ROUNDS` | `5` | Max compression rounds before a rollout is marked overlong |
+| `SEMANTIC_SELECTION_FULL_OBSERVATION` | `False` | When using `semantic_selection`, retrieve full observations instead of compact findings |
+| `ECHO_CREDIT_PENALTY_RATIO` | `0.0` | Down-weight (vs. 1.0 for credited tokens) applied to non-credited tokens |
+
+Examples reproducing paper ablations (all on top of the ECHO async script):
+
+```bash
+# Full ECHO (paper main): learned selection + provenance-guided token credit
+bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
+
+# Ablation: static semantic top-k retrieval instead of learned selection
+CONTEXT_COMPRESSION_METHOD=semantic_selection \
+  bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
+
+# Ablation: semantic top-k retrieving full observations (not compact findings)
+CONTEXT_COMPRESSION_METHOD=semantic_selection SEMANTIC_SELECTION_FULL_OBSERVATION=True \
+  bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
+
+# Ablation: w/o traceable credit assignment (dense credit on all tokens)
+ECHO_CREDIT_METHOD=none \
+  bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
+
+# SUPO baseline (rolling summarization) — synchronous script
+bash examples/sglang_multiturn/run_qwen3-32b_bcp_supo_4node.sh
+```
 
 ## Results
 
+### Ablations
+
 <div align="center">
-<img src="assets/component_ablation.png" width="49%" alt="Component ablation">
+<img src="assets/component_ablation.png" width="49%" alt="Memory component ablation">
 <img src="assets/credit_assignment_ablation.png" width="49%" alt="Credit assignment ablation">
 </div>
+
+> **Left — Memory component ablation.** Held-out accuracy vs. training, comparing
+> ECHO's learned source selection against static semantic top-k retrieval, and
+> compact last-turn findings against full observations. Learned selection is the
+> main driver of accuracy; semantic top-k stays compact but plateaus lower, and
+> full observations add no gain over compact findings.
+>
+> **Right — Credit assignment ablation.** ECHO's provenance-guided token credit
+> vs. dense credit (w/o traceable CA, rewards all tokens) and all-turn importance
+> weighting. Dense credit lowers accuracy and stability; all-turn weighting
+> further inflates turn counts. Traceable credit gives the best accuracy/stability.
+
+### MoE backbone
 
 <div align="center">
 <img src="assets/moe_experiment_adjusted.png" width="60%" alt="MoE experiment">
 </div>
+
+> **Transfer to the sparse MoE backbone (Qwen3-30B-A3B).** Held-out accuracy over
+> training for ECHO vs. GRPO, showing the method's gains are not specific to the
+> dense backbone.
 
 ## Acknowledgements
 
