@@ -61,6 +61,15 @@ backbones.
 > keeps each compact memory tied to its source turn, so selected historical
 > evidence stays addressable for delayed credit assignment.
 
+<div align="center">
+<img src="assets/motivation_training_diagnostics.png" width="98%" alt="Training diagnostics: summarization induces turn proliferation and volume growth">
+</div>
+
+> Training diagnostics on long-horizon search. Summarization-based context
+> management enables longer rollouts, but also leads to turn proliferation, longer
+> responses, higher generation time, and increased trajectory volume — motivating
+> a reconstruction scheme that stays compact while remaining source-traceable.
+
 ECHO separates local turn compression from global context reconstruction. After
 each completed tool-use turn, the policy summarizes only that turn into a compact,
 source-indexed memory clue. When the working context reaches the compression
