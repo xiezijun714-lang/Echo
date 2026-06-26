@@ -5,7 +5,7 @@
 # requirements-cuda.txt. Install Echo itself with `pip install -e .`.
 accelerate==1.13.0
 codetiming==1.4.0
-datasets==4.8.4
+datasets==5.0.0
 dill==0.4.1
 einops==0.8.2
 fastapi==0.135.2
