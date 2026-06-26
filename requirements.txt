@@ -17,7 +17,7 @@ numpy==1.26.4
 packaging==25.0
 pandas==2.3.3
 peft==0.18.1
-pillow==12.1.1
+pillow==12.2.0
 pyarrow==23.0.1
 pybind11==3.0.3
 pylatexenc==2.10
