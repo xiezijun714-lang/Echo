@@ -254,10 +254,12 @@ Without any additional tuning, the BrowseComp-Plus–trained policy is evaluated
 across three out-of-domain families: Multi-Objective QA (2–16 objectives), Code
 Generation (CodeGym, LoCoBench-Agent), and Deep Information Seeking (GAIA, HLE,
 Frames). **Bold** = best, _underline_ = second-best. CA = credit assignment.
+Column abbreviations: **MO-Avg** = Multi-Objective QA average; **LoCo** =
+LoCoBench-Agent.
 
 **Backbone: Qwen3-32B-Instruct**
 
-| Method | 2-obj | 4-obj | 8-obj | 16-obj | MO-QA Avg | CodeGym | LoCoBench-Agent | GAIA | HLE | Frames | Avg |
+| Method | 2-obj | 4-obj | 8-obj | 16-obj | MO-Avg | CodeGym | LoCo | GAIA | HLE | Frames | Avg |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | GRPO | 38.6 | 39.8 | 35.8 | 29.0 | 35.8 | 32.8 | 67.7 | _25.2_ | 8.8 | 24.8 | 33.6 |
 | SUPO | 40.9 | 36.4 | 36.4 | 34.7 | 37.1 | 35.4 | 68.1 | _25.2_ | 9.2 | 26.8 | 34.8 |
@@ -269,7 +271,7 @@ Frames). **Bold** = best, _underline_ = second-best. CA = credit assignment.
 
 **Backbone: Qwen3-30B-A3B-Instruct**
 
-| Method | 2-obj | 4-obj | 8-obj | 16-obj | MO-QA Avg | CodeGym | LoCoBench-Agent | GAIA | HLE | Frames | Avg |
+| Method | 2-obj | 4-obj | 8-obj | 16-obj | MO-Avg | CodeGym | LoCo | GAIA | HLE | Frames | Avg |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | GRPO | _27.3_ | 26.1 | _27.3_ | 16.2 | 24.2 | 20.3 | _65.7_ | _23.3_ | 7.8 | _19.1_ | 25.9 |
 | SUPO | 25.0 | _30.7_ | _27.3_ | _18.2_ | _25.3_ | _27.3_ | 65.1 | _23.3_ | _8.0_ | 17.0 | _26.9_ |
