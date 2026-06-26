@@ -49,6 +49,18 @@ backbones.
 <img src="assets/echo_ca.png" width="98%" alt="ECHO credit assignment">
 </div>
 
+### Motivation
+
+<div align="center">
+<img src="assets/echo_motivation.png" width="98%" alt="ECHO motivation: source-indexed reconstruction vs collapsed summary">
+</div>
+
+> Collapsing history into a rolling summary makes bounded-context acting possible
+> but removes direct source-level addressability — once turns are collapsed,
+> outcome-based RL has no route to credit the original evidence. ECHO instead
+> keeps each compact memory tied to its source turn, so selected historical
+> evidence stays addressable for delayed credit assignment.
+
 ECHO separates local turn compression from global context reconstruction. After
 each completed tool-use turn, the policy summarizes only that turn into a compact,
 source-indexed memory clue. When the working context reaches the compression
@@ -56,21 +68,6 @@ threshold, ECHO reconstructs a bounded context by keeping the most recent turns
 and letting the policy select relevant historical memories. The selected source
 indices form provenance routes that guide credit assignment during the GRPO-style
 update.
-
-### Agent loop
-
-<div align="center">
-<img src="assets/agent_loop_comparison.png" width="98%" alt="ECHO rollout-time agent loop">
-</div>
-
-> **ECHO rollout-time control flow.** The agent maintains a working context, a set
-> of source-indexed memories, and the generated token segments. After each tool
-> response it writes a compact finding for the completed turn; once the context
-> budget is exceeded, it selects relevant memory records, reconstructs a bounded
-> continuation context, and records the provenance masks (selected-turn,
-> finding-token, selection-token) later reused for traceable credit assignment.
-> The final segment is always credited. See Appendix “ECHO Agent Loop” in the
-> paper for the full algorithm.
 
 ## Installation
 
