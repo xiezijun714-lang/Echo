@@ -3,7 +3,7 @@
 # megatron-core / transformer_engine / flash_attn / flashinfer). Those must be
 # installed in a specific order against your CUDA toolkit — see README.md and
 # requirements-cuda.txt. Install Echo itself with `pip install -e .`.
-accelerate==1.13.0
+accelerate==1.14.0
 codetiming==1.4.0
 datasets==4.8.4
 dill==0.4.1
