@@ -1,9 +1,6 @@
-## Enabled the dependabot to check the dependencies of the project
-## Dependabot will open pull requests to update dependencies automatically
-
+# Dependabot version updates are intentionally disabled for this repository.
+# Dependencies are pinned to the exact versions used for the paper and are tightly
+# coupled with the CUDA-compiled stack (see requirements-cuda.txt), so automatic
+# version bumps could break reproducibility.
 version: 2
-updates:
-  - package-ecosystem: pip
-    directory: "/"
-    schedule:
-      interval: weekly
+updates: []

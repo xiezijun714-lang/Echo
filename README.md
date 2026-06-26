@@ -45,38 +45,57 @@ backbones.
 
 ## Method
 
-<div align="center">
-<img src="assets/echo_ca.png" width="98%" alt="ECHO credit assignment">
-</div>
+ECHO has two coupled stages: it **prunes** distant history into a selectable,
+source-indexed memory so the policy can keep acting under a bounded context, and
+it **traces** the same source indices back through the update so credit flows only
+to the turns the policy actually reused.
 
 ### Motivation
 
 <div align="center">
-<img src="assets/echo_motivation.png" width="98%" alt="ECHO motivation: source-indexed reconstruction vs collapsed summary">
+<img src="assets/echo_motivation.png" width="98%" alt="ECHO: source-indexed reconstruction vs collapsed summary">
 </div>
 
 > Collapsing history into a rolling summary makes bounded-context acting possible
-> but removes direct source-level addressability — once turns are collapsed,
-> outcome-based RL has no route to credit the original evidence. ECHO instead
-> keeps each compact memory tied to its source turn, so selected historical
-> evidence stays addressable for delayed credit assignment.
+> but removes direct source-level addressability — once turns are folded into one
+> summary, outcome-based RL has no route to credit the original evidence turns.
+> ECHO instead compresses **each completed turn independently** into a compact,
+> source-indexed memory clue, and keeps the distant history as a *non-collapsing*
+> set: every memory stays individually linked to its source turn even after the
+> raw observation leaves the active context. At a compression boundary the policy
+> autoregressively **selects** which historical memories to reuse, and reconstructs
+> a bounded context from the selected memories plus the most recent turns. The
+> selected source indices are kept as an explicit provenance set — the trace later
+> reused for learning.
 
 <div align="center">
 <img src="assets/motivation_training_diagnostics.png" width="98%" alt="Training diagnostics: summarization induces turn proliferation and volume growth">
 </div>
 
 > Training diagnostics on long-horizon search. Summarization-based context
-> management enables longer rollouts, but also leads to turn proliferation, longer
-> responses, higher generation time, and increased trajectory volume — motivating
-> a reconstruction scheme that stays compact while remaining source-traceable.
+> management enables longer rollouts, but also drives turn proliferation, longer
+> responses, higher generation time, and inflated trajectory volume — motivating a
+> reconstruction scheme that stays compact while remaining source-traceable.
 
-ECHO separates local turn compression from global context reconstruction. After
-each completed tool-use turn, the policy summarizes only that turn into a compact,
-source-indexed memory clue. When the working context reaches the compression
-threshold, ECHO reconstructs a bounded context by keeping the most recent turns
-and letting the policy select relevant historical memories. The selected source
-indices form provenance routes that guide credit assignment during the GRPO-style
-update.
+### Credit assignment
+
+<div align="center">
+<img src="assets/echo_ca.png" width="98%" alt="Provenance-guided credit assignment in ECHO">
+</div>
+
+> **Overview of ECHO.** GRPO and SUPO apply the trajectory advantage *densely* to
+> all generated tokens (in SUPO, including the rolling-summary tokens), so once the
+> outcome reward arrives they cannot tell evidence turns from redundant searches.
+> ECHO instead reuses the reconstruction trace as a credit route. It builds a
+> token-level credit mask that keeps **(i)** the final-answer segment, **(ii)** the
+> action tokens of selected source turns, **(iii)** the finding tokens of selected
+> turns, and **(iv)** the memory-selection tokens; all other tokens are masked out.
+> An outcome-dependent advantage is attached only to those credit tokens, using the
+> *positive part* of the group-relative advantage: a correct rollout reinforces the
+> evidence path the policy chose to reuse, while an incorrect rollout — whose trace
+> carries no reliable signal — receives no update. (Dense all-token credit is kept
+> only as the "w/o traceable CA" ablation.)
+
 
 ## Installation
 
