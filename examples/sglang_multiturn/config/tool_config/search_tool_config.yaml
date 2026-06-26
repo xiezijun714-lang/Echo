@@ -1,0 +1,75 @@
+tools:
+  - class_name: "verl.tools.search_tool.SearchTool"
+    config:
+      retrieval_service_url: "http://localhost:8000/retrieve"
+      topk: 5
+
+      num_workers: 16
+      rate_limit: 40
+      timeout: 300
+      type: native
+    tool_schema:
+      type: "function"
+      function:
+        name: "search"
+        description: "Search the BrowseComp-Plus corpus. Returns top-5 document snippets with docid and score. Use open_page on promising results to inspect the truncated source document."
+        parameters:
+          type: "object"
+          properties:
+            query:
+              type: "string"
+              description: "Search query string."
+            topk:
+              type: "integer"
+              description: "Number of search results to return. Default is 5."
+          required:
+            - "query"
+          additionalProperties: false
+
+  - class_name: "verl.tools.open_page_tool.OpenPageTool"
+    config:
+      retrieval_service_url: "http://localhost:8000/get_doc"
+      max_chars: 16000
+      timeout: 300
+      type: native
+    tool_schema:
+      type: "function"
+      function:
+        name: "open_page"
+        description: "Open a BrowseComp-Plus document by docid and return the beginning of the source document, truncated to a fixed character budget."
+        parameters:
+          type: "object"
+          properties:
+            docid:
+              type: "string"
+              description: "Document id from a search result."
+            query:
+              type: "string"
+              description: "Optional focused evidence need."
+          required:
+            - "docid"
+          additionalProperties: false
+
+  - class_name: "verl.tools.finish_tool.FinishTool"
+    config:
+      type: native
+    tool_schema:
+      type: "function"
+      function:
+        name: "finish"
+        description: "Submit the final answer and terminate the interaction."
+        parameters:
+          type: "object"
+          properties:
+            answer:
+              type: "string"
+              description: "Succinct final answer."
+            explanation:
+              type: "string"
+              description: "Brief evidence-backed explanation."
+            confidence:
+              type: "string"
+              description: "Confidence score, for example 80%."
+          required:
+            - "answer"
+          additionalProperties: false

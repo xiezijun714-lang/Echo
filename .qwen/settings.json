@@ -1,0 +1,65 @@
+{
+  "env": {
+    "BAILIAN_TOKEN_PLAN_API_KEY": "sk-sp-djI.k1uua3FEvbGeeZVvUmH_WBrpxI5Zozz_iANmFRi8m3jKDmF1J9mS0eDE-hH2Iael1p5QSzWERJDtpOyN6HahOt5CPAMuykYtyibgLUQLFeKaooimi0T6QWSkVtP_xTtR5kaUA8BliYNLkZuvPxO3GgAmHrEvRcFp7SItvt1wZ0sCTFWjhWg9SCMCe86MU_9e.MEUCIQD9bC_ZG2-8eHhsx6xihYe-NQbPTkZjDGCESotIUcrU-AIgFwkvn-RC1jElj7YlFJrBvzX-mzpwatWCXq5EPPE-_UM"
+  },
+  "modelProviders": {
+    "openai": [
+      {
+        "id": "qwen3.6-plus",
+        "name": "[Token Plan 团队版] qwen3.6-plus",
+        "baseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+        "envKey": "BAILIAN_TOKEN_PLAN_API_KEY",
+        "generationConfig": {
+          "extra_body": {
+            "enable_thinking": true
+          }
+        }
+      },
+      {
+        "id": "glm-5",
+        "name": "[Token Plan 团队版] glm-5",
+        "baseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+        "envKey": "BAILIAN_TOKEN_PLAN_API_KEY",
+        "generationConfig": {
+          "extra_body": {
+            "enable_thinking": true
+          }
+        }
+      },
+      {
+        "id": "MiniMax-M2.5",
+        "name": "[Token Plan 团队版] MiniMax-M2.5",
+        "baseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+        "envKey": "BAILIAN_TOKEN_PLAN_API_KEY",
+        "generationConfig": {
+          "extra_body": {
+            "enable_thinking": true
+          }
+        }
+      },
+      {
+        "id": "deepseek-v3.2",
+        "name": "[Token Plan 团队版] deepseek-v3.2",
+        "baseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+        "envKey": "BAILIAN_TOKEN_PLAN_API_KEY",
+        "generationConfig": {
+          "extra_body": {
+            "enable_thinking": true
+          }
+        }
+      }
+    ]
+  },
+  "security": {
+    "auth": {
+      "selectedType": "openai"
+    }
+  },
+  "tokenPlan": {
+    "region": "china"
+  },
+  "model": {
+    "name": "glm-5"
+  },
+  "$version": 3
+}
