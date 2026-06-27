@@ -241,7 +241,7 @@ bash examples/sglang_multiturn/run_qwen3-32b_bcp_supo_4node.sh
 ### MoE backbone
 
 <div align="center">
-<img src="assets/moe_experiment_adjusted.png" width="60%" alt="MoE experiment">
+<img src="assets/moe_experiment.png" width="60%" alt="MoE experiment">
 </div>
 
 > **Transfer to the sparse MoE backbone (Qwen3-30B-A3B).** Held-out accuracy over
