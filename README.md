@@ -1,10 +1,10 @@
 <div align="center">
 
-# ECHO: Prune to Act, Trace to Learn with Selective Turn Memory in Agentic RL
+# 🔊 ECHO: Prune to Act, Trace to Learn with Selective Turn Memory in Agentic RL
 
 </div>
 
-ECHO is a selective turn-memory framework for traceable context reconstruction in
+**ECHO** is a selective turn-memory framework for traceable context reconstruction in
 agentic reinforcement learning, built on top of [verl](https://github.com/volcengine/verl).
 
 Long-horizon language agents must act under bounded contexts while learning from
@@ -17,11 +17,11 @@ conditioned on.
 
 ECHO addresses this with two coupled ideas:
 
-- **Prune to Act** — each completed turn is compressed into a *source-indexed*
+- ✂️ **Prune to Act** — each completed turn is compressed into a *source-indexed*
   memory; distant history is kept as a non-collapsing memory set, and a bounded
   policy context is reconstructed by selecting relevant memories together with
   recent interactions.
-- **Trace to Learn** — the selected source indices are reused as provenance
+- 🔍 **Trace to Learn** — the selected source indices are reused as provenance
   routes for delayed credit assignment, so learning rewards the final segment and
   the useful historical memory tokens instead of all generated tokens.
 
@@ -43,14 +43,16 @@ generalization across multi-objective QA, code generation, and deep
 information-seeking benchmarks on both dense (Qwen3-32B) and MoE (Qwen3-30B-A3B)
 backbones.
 
-## Method
+---
+
+## 🧠 Method
 
 ECHO has two coupled stages: it **prunes** distant history into a selectable,
 source-indexed memory so the policy can keep acting under a bounded context, and
 it **traces** the same source indices back through the update so credit flows only
 to the turns the policy actually reused.
 
-### Motivation
+### 💡 Motivation
 
 <div align="center">
 <img src="assets/echo_motivation.png" width="98%" alt="ECHO: source-indexed reconstruction vs collapsed summary">
@@ -77,7 +79,7 @@ to the turns the policy actually reused.
 > responses, higher generation time, and inflated trajectory volume — motivating a
 > reconstruction scheme that stays compact while remaining source-traceable.
 
-### Credit assignment
+### 🎯 Credit Assignment
 
 <div align="center">
 <img src="assets/echo_ca.png" width="98%" alt="Provenance-guided credit assignment in ECHO">
@@ -96,14 +98,15 @@ to the turns the policy actually reused.
 > carries no reliable signal — receives no update. (Dense all-token credit is kept
 > only as the "w/o traceable CA" ablation.)
 
+---
 
-## Installation
+## 🛠️ Installation
 
 Reference environment used for the paper:
 
-- Python 3.10, CUDA 12.8
-- GPU: NVIDIA H800 (80GB), 8 GPUs per node
-- PyTorch 2.7.1+cu128, sglang 0.4.10, megatron-core 0.13.2
+- 🐍 Python 3.10, CUDA 12.8
+- 🖥️ GPU: NVIDIA H800 (80GB), 8 GPUs per node
+- ⚙️ PyTorch 2.7.1+cu128, sglang 0.4.10, megatron-core 0.13.2
 - transformer_engine 2.5.0, flash_attn 2.7.4.post1, flashinfer 0.2.6.post1
 
 The CUDA-compiled stack (torch / sglang / megatron-core / transformer_engine /
@@ -116,7 +119,9 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-## Data preparation
+---
+
+## 📦 Data Preparation
 
 ECHO is trained and evaluated on
 [BrowseComp-Plus](https://github.com/texttron/BrowseComp-Plus). Build the prompt
@@ -131,7 +136,9 @@ directory. A dense retrieval service over the BrowseComp-Plus corpus is launched
 automatically by the training scripts
 (`examples/sglang_multiturn/browsecomp_retrieval_server.py`).
 
-## Training
+---
+
+## 🚀 Training
 
 The scripts target a 4-node × 8×H800 setup with the Megatron backend and SGLang
 rollout. Before launching, export the required paths (scripts fail fast if these
@@ -147,7 +154,7 @@ export DATA_DIR=/path/to/browsecomp-plus-processed  # contains *.paper.parquet
 export WANDB_API_KEY=...   export WANDB_ENTITY=...   # if using Weights & Biases
 ```
 
-**LLM-judge reward.** The reward function (`verl/utils/reward_score/bc_p_llm_judge.py`)
+**⚖️ LLM-judge reward.** The reward function (`verl/utils/reward_score/bc_p_llm_judge.py`)
 scores answers with an OpenAI-compatible chat-completions endpoint. Point it at any
 compatible API (OpenAI, DeepSeek, a self-hosted vLLM/SGLang server, etc.) via:
 
@@ -165,15 +172,17 @@ there are no hardcoded credentials. Use your own provider and key.
 For multi-node runs, the node list is resolved by `bcp_node_utils.sh` from
 `TRAINER_IPS` (or the cluster-provided `PADDLE_TRAINERS`).
 
-Available scripts in `examples/sglang_multiturn/`:
+📄 Available scripts in `examples/sglang_multiturn/`:
 
-- `run_qwen3-32b_bcp_echo-ca_4node.sh` — ECHO (synchronous)
-- `run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh` — ECHO (fully async)
-- `run_qwen3-32b_bcp_grpo_4node.sh` — GRPO baseline (synchronous)
-- `run_qwen3-32b_bcp_grpo_fully_async_4node.sh` — GRPO baseline (fully async)
-- `run_qwen3-30b-a3b_bcp_echo-ca_fully_async_4node.sh` — ECHO on the MoE backbone
-- `run_qwen3-30b-a3b_bcp_grpo_fully_async_4node.sh` — GRPO on the MoE backbone
-- `run_qwen3-32b_bcp_supo_4node.sh` — SUPO rolling-summary baseline (synchronous)
+| Script | Description |
+| --- | --- |
+| `run_qwen3-32b_bcp_echo-ca_4node.sh` | ECHO (synchronous) |
+| `run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh` | ECHO (fully async) |
+| `run_qwen3-32b_bcp_grpo_4node.sh` | GRPO baseline (synchronous) |
+| `run_qwen3-32b_bcp_grpo_fully_async_4node.sh` | GRPO baseline (fully async) |
+| `run_qwen3-30b-a3b_bcp_echo-ca_fully_async_4node.sh` | ECHO on the MoE backbone |
+| `run_qwen3-30b-a3b_bcp_grpo_fully_async_4node.sh` | GRPO on the MoE backbone |
+| `run_qwen3-32b_bcp_supo_4node.sh` | SUPO rolling-summary baseline (synchronous) |
 
 Run from the project root, e.g.:
 
@@ -181,7 +190,7 @@ Run from the project root, e.g.:
 bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
 ```
 
-### Reproducing ablations
+### 🔬 Reproducing Ablations
 
 Ablation variants reuse the same core scripts and are toggled through environment
 variables (see the top of each script for the full list). Key knobs:
@@ -199,26 +208,28 @@ variables (see the top of each script for the full list). Key knobs:
 Examples reproducing paper ablations (all on top of the ECHO async script):
 
 ```bash
-# Full ECHO (paper main): learned selection + provenance-guided token credit
+# ✅ Full ECHO (paper main): learned selection + provenance-guided token credit
 bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
 
-# Ablation: static semantic top-k retrieval instead of learned selection
+# 🔁 Ablation: static semantic top-k retrieval instead of learned selection
 CONTEXT_COMPRESSION_METHOD=semantic_selection \
   bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
 
-# Ablation: semantic top-k retrieving full observations (not compact findings)
+# 🔁 Ablation: semantic top-k retrieving full observations (not compact findings)
 CONTEXT_COMPRESSION_METHOD=semantic_selection SEMANTIC_SELECTION_FULL_OBSERVATION=True \
   bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
 
-# Ablation: w/o traceable credit assignment (dense credit on all tokens)
+# 🔁 Ablation: w/o traceable credit assignment (dense credit on all tokens)
 ECHO_CREDIT_METHOD=none \
   bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
 
-# SUPO baseline (rolling summarization) — synchronous script
+# 📊 SUPO baseline (rolling summarization) — synchronous script
 bash examples/sglang_multiturn/run_qwen3-32b_bcp_supo_4node.sh
 ```
 
-## Results
+---
+
+## 📊 Results
 
 ### Ablations
 
@@ -238,7 +249,7 @@ bash examples/sglang_multiturn/run_qwen3-32b_bcp_supo_4node.sh
 > weighting. Dense credit lowers accuracy and stability; all-turn weighting
 > further inflates turn counts. Traceable credit gives the best accuracy/stability.
 
-### MoE backbone
+### 🧩 MoE Backbone
 
 <div align="center">
 <img src="assets/moe_experiment.png" width="60%" alt="MoE experiment">
@@ -248,7 +259,7 @@ bash examples/sglang_multiturn/run_qwen3-32b_bcp_supo_4node.sh
 > training for ECHO vs. GRPO, showing the method's gains are not specific to the
 > dense backbone.
 
-### Zero-shot generalization
+### 🌐 Zero-shot Generalization
 
 Without any additional tuning, the BrowseComp-Plus–trained policy is evaluated
 across three out-of-domain families: Multi-Objective QA (2–16 objectives), Code
@@ -277,12 +288,16 @@ LoCoBench-Agent.
 | SUPO | 25.0 | _30.7_ | _27.3_ | _18.2_ | _25.3_ | _27.3_ | 65.1 | _23.3_ | _8.0_ | 17.0 | _26.9_ |
 | **ECHO** | **34.1** | **36.4** | **30.1** | **18.8** | **29.9** | **29.7** | **66.8** | **24.3** | **9.2** | **25.0** | **30.5** |
 
-## Acknowledgements
+---
+
+## 🙏 Acknowledgements
 
 ECHO is built on [verl](https://github.com/volcengine/verl) (Volcano Engine
 Reinforcement Learning for LLMs). We thank the verl team and community.
 
-## Citation
+---
+
+## 📝 Citation
 
 ```bibtex
 @article{echo,
