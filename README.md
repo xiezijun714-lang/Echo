@@ -2,6 +2,11 @@
 
 # 🔊 ECHO: Prune to Act, Trace to Learn with Selective Turn Memory in Agentic RL
 
+<p>
+  <a href="https://arxiv.org/abs/2606.31650"><img src="https://img.shields.io/badge/arXiv-2606.31650-b31b1b.svg" alt="arXiv"></a>
+  <a href="https://huggingface.co/datasets/b1Ack714/echo"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Dataset-Hugging%20Face-yellow" alt="Hugging Face Dataset"></a>
+</p>
+
 </div>
 
 **ECHO** is a selective turn-memory framework for traceable context reconstruction in
