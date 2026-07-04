@@ -124,8 +124,25 @@ pip install -e .
 ## 📦 Data Preparation
 
 ECHO is trained and evaluated on
-[BrowseComp-Plus](https://github.com/texttron/BrowseComp-Plus). Build the prompt
-parquet files with:
+[BrowseComp-Plus](https://github.com/texttron/BrowseComp-Plus).
+
+You can download the preprocessed ECHO data from
+[Hugging Face](https://huggingface.co/datasets/b1Ack714/echo):
+
+```bash
+huggingface-cli download b1Ack714/echo \
+  --repo-type dataset \
+  --local-dir /path/to/browsecomp-plus-processed
+```
+
+Then point the training scripts at that directory:
+
+```bash
+export DATA_DIR=/path/to/browsecomp-plus-processed
+```
+
+Alternatively, build the prompt parquet files from a local BrowseComp-Plus copy
+with:
 
 ```bash
 python3 examples/data_preprocess/bcp_paper_prompt.py
