@@ -25,6 +25,6 @@ ray[default]==2.54.1
 tensorboard==2.20.0
 tensordict==0.10.0
 torchdata==0.11.0
-transformers==4.57.0
+transformers==5.13.0
 uvicorn==0.42.0
 wandb==0.25.1
