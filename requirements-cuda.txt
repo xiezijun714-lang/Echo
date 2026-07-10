@@ -19,14 +19,14 @@
 # Suggested install order (see README.md for full instructions):
 #   1) torch==2.7.1 (cu128 index)
 #   2) sglang==0.4.10
-#   3) flashinfer-python==0.2.6.post1
+#   3) flashinfer-python==0.6.14
 #   4) flash_attn==2.7.4.post1 (prebuilt wheel matching torch/cuda)
 #   5) transformer_engine==2.5.0
 #   6) megatron-core==0.13.2 + mbridge==0.15.1
 #   7) apex (built from source against the same CUDA)
 torch==2.7.1
 sglang==0.4.10
-flashinfer-python==0.2.6.post1
+flashinfer-python==0.6.14
 flash_attn==2.7.4.post1
 transformer_engine==2.5.0
 megatron-core==0.13.2
