@@ -1,0 +1,45 @@
+hydra:
+  searchpath:
+    - file://verl/trainer/config
+
+defaults:
+  - ppo_megatron_trainer
+  - _self_
+
+data:
+  max_prompt_length: 2048
+  max_response_length: 40960
+  train_batch_size: 32
+  return_raw_chat: True
+  return_multi_modal_inputs: False
+
+async_training:
+  staleness_threshold: 0.5
+  trigger_parameter_sync_step: 8
+  require_batches: 1
+  partial_rollout: True
+  use_trainer_do_validate: False
+
+rollout:
+  nnodes: 2
+  n_gpus_per_node: 8
+  n: 8
+  total_rollout_steps: 1000000000
+  test_freq: 5
+
+actor_rollout_ref:
+  hybrid_engine: True
+  actor:
+    megatron:
+      use_mbridge: False
+      override_transformer_config:
+        recompute_granularity: selective
+        recompute_modules: [core_attn]
+        attention_backend: flash
+  model:
+    custom_chat_template: null
+  rollout:
+    name: sglang
+    multi_turn:
+      enable: True
+      max_assistant_turns: 100

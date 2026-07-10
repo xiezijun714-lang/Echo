@@ -1,0 +1,6 @@
+# Dependabot version updates are intentionally disabled for this repository.
+# Dependencies are pinned to the exact versions used for the paper and are tightly
+# coupled with the CUDA-compiled stack (see requirements-cuda.txt), so automatic
+# version bumps could break reproducibility.
+version: 2
+updates: []

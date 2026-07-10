@@ -1,0 +1,33 @@
+# CUDA-compiled dependencies for the paper environment.
+#
+# These wheels are tied to a specific CUDA / PyTorch combination and must NOT be
+# installed with a plain `pip install -r`. Install them in the order below,
+# matching your CUDA toolkit. Reference environment used for the paper:
+#
+#   Python           3.10
+#   CUDA             12.8
+#   GPU              NVIDIA H800 (80GB) x 8 per node
+#   torch            2.7.1+cu128
+#   sglang           0.4.10
+#   megatron-core    0.13.2
+#   transformer_engine 2.5.0
+#   flash_attn       2.7.4.post1
+#   flashinfer       0.2.6.post1
+#   apex             0.1 (built from source)
+#   mbridge          0.15.1
+#
+# Suggested install order (see README.md for full instructions):
+#   1) torch==2.7.1 (cu128 index)
+#   2) sglang==0.4.10
+#   3) flashinfer-python==0.2.6.post1
+#   4) flash_attn==2.7.4.post1 (prebuilt wheel matching torch/cuda)
+#   5) transformer_engine==2.5.0
+#   6) megatron-core==0.13.2 + mbridge==0.15.1
+#   7) apex (built from source against the same CUDA)
+torch==2.7.1
+sglang==0.4.10
+flashinfer-python==0.2.6.post1
+flash_attn==2.7.4.post1
+transformer_engine==2.5.0
+megatron-core==0.13.2
+mbridge==0.15.1

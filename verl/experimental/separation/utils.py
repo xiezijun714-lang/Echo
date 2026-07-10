@@ -1,0 +1,119 @@
+# Copyright 2025 Meituan Ltd. and/or its affiliates
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+import os
+
+import ray
+
+from verl.trainer.ppo.ray_trainer import ResourcePoolManager
+from verl.trainer.ppo.utils import Role, need_reference_policy
+
+
+def _parse_node_ips(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        node_ips = [ip.strip() for ip in value.split(",") if ip.strip()]
+    else:
+        node_ips = [str(ip).strip() for ip in value if str(ip).strip()]
+    return node_ips or None
+
+
+def create_resource_pool_manager(config, roles: list) -> ResourcePoolManager:
+    """
+    Create resource pool manager
+
+    Args:
+        config: Configuration object
+        roles: List of roles that need to create resource pools
+
+    Returns:
+        ResourcePoolManager: Resource pool manager
+    """
+    resource_pool_spec = {}
+    mapping = {}
+    resource_pool_node_ips = {}
+
+    # Actor/Critic resource pool
+    if any(role in roles for role in [Role.Actor, Role.ActorRollout, Role.Critic, Role.RefPolicy, Role.RewardModel]):
+        assert config.trainer.n_gpus_per_node > 0, "config.trainer.n_gpus_per_node must be greater than 0"
+        assert config.trainer.nnodes > 0, "config.trainer.nnodes must be greater than 0"
+
+        trainer_pool = [config.trainer.n_gpus_per_node] * config.trainer.nnodes
+        resource_pool_spec["trainer_pool"] = trainer_pool
+        trainer_node_ips = _parse_node_ips(config.trainer.get("node_ips", None) or os.environ.get("VERL_TRAINER_POOL_IPS"))
+        if trainer_node_ips is not None:
+            resource_pool_node_ips["trainer_pool"] = trainer_node_ips
+
+        # Map training-related roles to the same resource pool
+        for role in [Role.Actor, Role.ActorRollout, Role.Critic, Role.RefPolicy, Role.RewardModel]:
+            if role in roles:
+                mapping[role] = "trainer_pool"
+
+    # Rollout resource pool
+    if Role.Rollout in roles:
+        assert config.rollout.n_gpus_per_node > 0, "config.rollout.n_gpus_per_node must be greater than 0"
+        assert config.rollout.nnodes > 0, "config.rollout.nnodes must be greater than 0"
+
+        rollout_pool = [config.rollout.n_gpus_per_node] * config.rollout.nnodes
+        resource_pool_spec["rollout_pool"] = rollout_pool
+        rollout_node_ips = _parse_node_ips(config.rollout.get("node_ips", None) or os.environ.get("VERL_ROLLOUT_POOL_IPS"))
+        if rollout_node_ips is not None:
+            resource_pool_node_ips["rollout_pool"] = rollout_node_ips
+        mapping[Role.Rollout] = "rollout_pool"
+
+    return ResourcePoolManager(
+        resource_pool_spec=resource_pool_spec,
+        mapping=mapping,
+        resource_pool_node_ips=resource_pool_node_ips,
+    )
+
+
+def create_role_worker_mapping(config):
+    """
+    Create mapping from roles to worker classes
+
+    Args:
+        config: Configuration object
+
+    Returns:
+        dict: Mapping from roles to worker classes
+    """
+    # Select worker class based on strategy
+    if config.trainer.get("use_legacy_worker_impl", "auto") != "disable":
+        raise NotImplementedError(
+            "Fully async policy or One step off policy does not support legacy worker implementation"
+        )
+
+    from verl.experimental.separation.engine_workers import DetachActorWorker
+    from verl.single_controller.ray import RayWorkerGroup
+    from verl.workers.engine_workers import TrainingWorker
+
+    ray_worker_group_cls = RayWorkerGroup
+
+    train_role = Role.Actor
+    if config.get("async_training", {}).get("use_trainer_do_validate", False):
+        train_role = Role.ActorRollout
+
+    role_worker_mapping = {
+        train_role: ray.remote(DetachActorWorker),
+        Role.Critic: ray.remote(TrainingWorker),
+    }
+
+    # Add reference policy (if KL loss or reward is required)
+    if need_reference_policy(config):
+        role_worker_mapping[Role.RefPolicy] = ray.remote(DetachActorWorker)
+
+    return role_worker_mapping, ray_worker_group_cls
