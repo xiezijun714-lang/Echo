@@ -313,7 +313,13 @@ class DenseRetriever:
     # ------------------------------------------------------------------
     def _last_token_pool(self, last_hidden_states, attention_mask):
         import torch
-        # Qwen3-Embedding uses decoder architecture -> last token pooling
+        # Qwen3-Embedding uses decoder architecture -> last token pooling.
+        # The tokenizer is loaded with padding_side="left", so in a batch the last
+        # valid token sits at the final position; the sum-1 index is only correct
+        # for right padding. Handle both (same as the Qwen3-Embedding model card).
+        left_padding = (attention_mask[:, -1].sum() == attention_mask.shape[0])
+        if left_padding:
+            return last_hidden_states[:, -1]
         seq_lens = attention_mask.sum(dim=1) - 1
         batch_size = last_hidden_states.shape[0]
         return last_hidden_states[torch.arange(batch_size, device=last_hidden_states.device), seq_lens]
@@ -337,7 +343,10 @@ class DenseRetriever:
                 return_tensors="pt",
             ).to(device)
             with torch.no_grad():
-                hidden = self.model(**enc)  # wrapper returns last_hidden_state directly
+                out = self.model(**enc)
+            # The multi-GPU DataParallel wrapper returns the last_hidden_state tensor
+            # directly; the raw AutoModel (single-GPU path) returns a ModelOutput.
+            hidden = out.last_hidden_state if hasattr(out, "last_hidden_state") else out
             emb = self._last_token_pool(hidden, enc["attention_mask"])
             emb = F.normalize(emb, p=2, dim=1)
             all_embs.append(emb.cpu().float().numpy())
