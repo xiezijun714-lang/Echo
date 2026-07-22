@@ -31,7 +31,7 @@ ECHO addresses this with two coupled ideas:
   segment and the historical tokens that the policy actually reused.
 
 <div align="center">
-<img src="assets/main_experiment.png" width="100%" alt="Main results on BrowseComp-Plus">
+<img src="assets/main_experiment_smoothed.png" width="100%" alt="Main results on BrowseComp-Plus">
 </div>
 
 > **Figure 1 — Training dynamics on BrowseComp-Plus** (ECHO = purple, GRPO =
@@ -82,7 +82,7 @@ positive credit flows only along the evidence path the policy actually reused.
 > context and to route delayed credit during learning.
 
 <div align="center">
-<img src="assets/motivation_training_diagnostics.png" width="98%" alt="Training diagnostics: summarization induces turn proliferation and volume growth">
+<img src="assets/motivation_training_diagnostics_smoothed.png" width="98%" alt="Training diagnostics: summarization induces turn proliferation and volume growth">
 </div>
 
 > Training diagnostics on long-horizon search. Summarization-based context
@@ -282,8 +282,8 @@ bash examples/sglang_multiturn/run_qwen3-32b_bcp_supo_4node.sh
 ### Ablations
 
 <div align="center">
-<img src="assets/component_ablation.png" width="49%" alt="Memory component ablation">
-<img src="assets/credit_assignment_ablation.png" width="49%" alt="Credit assignment ablation">
+<img src="assets/component_ablation_smoothed.png" width="49%" alt="Memory component ablation">
+<img src="assets/credit_assignment_ablation_smoothed.png" width="49%" alt="Credit assignment ablation">
 </div>
 
 > **Left — Memory component ablation.** Held-out accuracy vs. training, comparing
@@ -314,7 +314,7 @@ bash examples/sglang_multiturn/run_qwen3-32b_bcp_supo_4node.sh
 ### ⏱️ Training Efficiency
 
 <div align="center">
-<img src="assets/training_efficiency_comparison.png" width="98%" alt="Training efficiency comparison across GRPO, ECHO, and SUPO">
+<img src="assets/training_efficiency_comparison_smoothed.png" width="98%" alt="Training efficiency comparison across GRPO, ECHO, and SUPO">
 </div>
 
 ECHO incurs early overhead because the policy writes a finding after each
