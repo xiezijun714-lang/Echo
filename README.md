@@ -313,6 +313,10 @@ bash examples/sglang_multiturn/run_qwen3-32b_bcp_supo_4node.sh
 
 ### ⏱️ Training Efficiency
 
+<div align="center">
+<img src="assets/training_efficiency_comparison.png" width="98%" alt="Training efficiency comparison across GRPO, ECHO, and SUPO">
+</div>
+
 ECHO incurs early overhead because the policy writes a finding after each
 completed tool turn and generates selection actions at reconstruction boundaries.
 Later in training, however, its bounded selected view limits turn proliferation;

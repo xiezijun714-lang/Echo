@@ -6,10 +6,22 @@ on:
   schedule:
     - cron: "0 0 * * 0"
   pull_request:
+    paths:
+      - "**/*.py"
+      - "**/*.pyi"
+      - "pyproject.toml"
+      - ".pre-commit-config.yaml"
+      - ".github/workflows/pre-commit.yml"
   push:
     branches:
       - main
       - v0.*
+    paths:
+      - "**/*.py"
+      - "**/*.pyi"
+      - "pyproject.toml"
+      - ".pre-commit-config.yaml"
+      - ".github/workflows/pre-commit.yml"
   # Allow manual triggering
   workflow_dispatch:
 
@@ -31,8 +43,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install the current repository
         run: |
-          pip install pre-commit hydra-core
-          pip install --no-deps -e .
+          pip install pre-commit
       - name: Set ruff --output-format=github
         run: |
           sed -i 's/--output-format=full/--output-format=github/' .pre-commit-config.yaml
