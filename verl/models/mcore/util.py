@@ -101,6 +101,13 @@ def preprocess_packed_seqs(
             start_idx = cu_seqlens_padded_cpu[i] // cp_size
             # split to 2 chunks
             d = input_ids[i, attention_mask[i]]
+            # Every CP rank takes a fixed-width leading chunk, including for
+            # zero-weight placeholders shorter than one alignment block.
+            if d.shape[0] < align_size:
+                d = torch.cat(
+                    [d, torch.zeros(align_size - d.shape[0], dtype=d.dtype, device=d.device)],
+                    dim=0,
+                )
             input_ids_rmpad[start_idx : start_idx + half_seqlen] = d[
                 half_seqlen * cp_rank : half_seqlen * (cp_rank + 1)
             ]

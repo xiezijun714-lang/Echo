@@ -17,6 +17,7 @@ Note that we don't combine the main with ray_trainer as ray_trainer is used by o
 
 import os
 import socket
+from copy import deepcopy
 
 import hydra
 import ray
@@ -73,8 +74,13 @@ def run_ppo(config, task_runner_class=None) -> None:
 
         runtime_env = OmegaConf.merge(default_runtime_env, runtime_env_kwargs)
         ray_init_kwargs = OmegaConf.create({**ray_init_kwargs, "runtime_env": runtime_env})
-        print(f"ray init kwargs: {ray_init_kwargs}")
-        ray.init(**OmegaConf.to_container(ray_init_kwargs))
+        ray_init_kwargs = OmegaConf.to_container(ray_init_kwargs, resolve=True)
+        ray_init_kwargs_for_log = deepcopy(ray_init_kwargs)
+        runtime_env_for_log = ray_init_kwargs_for_log.get("runtime_env", {})
+        if isinstance(runtime_env_for_log, dict) and isinstance(runtime_env_for_log.get("env_vars"), dict):
+            runtime_env_for_log["env_vars"] = {key: "<redacted>" for key in runtime_env_for_log["env_vars"]}
+        print(f"ray init kwargs: {ray_init_kwargs_for_log}")
+        ray.init(**ray_init_kwargs)
 
     if task_runner_class is None:
         task_runner_class = ray.remote(num_cpus=1)(TaskRunner)  # please make sure main_task is not scheduled on head

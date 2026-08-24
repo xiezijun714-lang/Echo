@@ -5,8 +5,8 @@ BCP_DEFAULT_SLICE0_TRAINERS="${BCP_DEFAULT_SLICE0_TRAINERS:-}"
 
 select_bcp_nodes() {
     NODES_PER_EXPERIMENT="${NODES_PER_EXPERIMENT:-4}"
-    if [[ ! "$NODES_PER_EXPERIMENT" =~ ^[0-9]+$ ]] || [ "$NODES_PER_EXPERIMENT" -ne 4 ]; then
-        echo "[config] ERROR: BCP scripts are configured for 4 nodes; got NODES_PER_EXPERIMENT=${NODES_PER_EXPERIMENT}."
+    if [[ ! "$NODES_PER_EXPERIMENT" =~ ^[0-9]+$ ]] || [ "$NODES_PER_EXPERIMENT" -lt 1 ]; then
+        echo "[config] ERROR: NODES_PER_EXPERIMENT must be a positive integer; got ${NODES_PER_EXPERIMENT}."
         exit 1
     fi
 
@@ -31,12 +31,12 @@ select_bcp_nodes() {
             TRAINER_IPS="$(IFS=,; echo "${SELECTED_IPS[*]}")"
         elif [ "${#PADDLE_TRAINER_ARRAY[@]}" -eq "$NODES_PER_EXPERIMENT" ]; then
             if [[ -n "${NODE_SLICE:-}" && "${NODE_SLICE}" != "0" ]]; then
-                echo "[config] ERROR: NODE_SLICE=${NODE_SLICE} is out of range for a 4-node PADDLE_TRAINERS list."
+                echo "[config] ERROR: NODE_SLICE=${NODE_SLICE} is out of range for a ${NODES_PER_EXPERIMENT}-node PADDLE_TRAINERS list."
                 exit 1
             fi
             TRAINER_IPS="${SOURCE_TRAINERS}"
         else
-            echo "[config] ERROR: PADDLE_TRAINERS has ${#PADDLE_TRAINER_ARRAY[@]} nodes; expected 4."
+            echo "[config] ERROR: PADDLE_TRAINERS has ${#PADDLE_TRAINER_ARRAY[@]} nodes; expected ${NODES_PER_EXPERIMENT}."
             exit 1
         fi
     else
@@ -68,7 +68,12 @@ select_bcp_nodes() {
         echo "[config] ERROR: HEAD_IP=${HEAD_IP} must match the first TRAINER_IPS entry (${TRAINER_IP_ARRAY[0]}). Reorder TRAINER_IPS to choose a different head."
         exit 1
     fi
-    WORKER_IPS="${WORKER_IPS:-${TRAINER_IP_ARRAY[*]:1}}"
+    EXPECTED_WORKER_IPS="${TRAINER_IP_ARRAY[*]:1}"
+    if [[ -n "${WORKER_IPS:-}" && "$WORKER_IPS" != "$EXPECTED_WORKER_IPS" ]]; then
+        echo "[config] ERROR: WORKER_IPS=${WORKER_IPS} is inconsistent with TRAINER_IPS=${TRAINER_IPS}."
+        exit 1
+    fi
+    WORKER_IPS="$EXPECTED_WORKER_IPS"
 
     export TRAINER_IPS HEAD_IP WORKER_IPS NODES_PER_EXPERIMENT
     echo "[config] selected TRAINER_IPS=${TRAINER_IPS}"

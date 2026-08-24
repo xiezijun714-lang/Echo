@@ -39,6 +39,8 @@ PPO_RAY_RUNTIME_ENV = {
     },
 }
 
+RAY_RUNTIME_ENV_PASSTHROUGH = "VERL_RAY_RUNTIME_ENV_VARS"
+
 
 def get_ppo_ray_runtime_env():
     """
@@ -56,4 +58,11 @@ def get_ppo_ray_runtime_env():
     for key in list(runtime_env["env_vars"].keys()):
         if os.environ.get(key) is not None:
             runtime_env["env_vars"].pop(key, None)
+
+    # Launchers can explicitly forward process environment variables without
+    # embedding their values in Hydra config or command-line arguments.
+    for key in os.environ.get(RAY_RUNTIME_ENV_PASSTHROUGH, "").split(","):
+        key = key.strip()
+        if key and key in os.environ:
+            runtime_env["env_vars"][key] = os.environ[key]
     return runtime_env

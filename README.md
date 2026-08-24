@@ -217,6 +217,11 @@ The script reads the key from the environment variable named by
 `BCP_JUDGE_API_KEY_ENV` (default `ONEAPI_KEY`) and fails fast if it is unset, so
 there are no hardcoded credentials. Use your own provider and key.
 
+The launchers also load `${PROJECT_DIR}/.env` when it exists. Start from
+`.env.example`; `.env` is ignored by git and is intended for machine-specific
+paths and endpoint settings. Keep API keys in the process environment rather
+than in that file.
+
 For multi-node runs, the node list is resolved by `bcp_node_utils.sh` from
 `TRAINER_IPS` (or the cluster-provided `PADDLE_TRAINERS`).
 
@@ -237,6 +242,18 @@ Run from the project root, e.g.:
 ```bash
 bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
 ```
+
+To validate paths, imports, node selection, parallelism, and generated tool
+configuration without starting Ray or using GPUs:
+
+```bash
+BCP_PREFLIGHT_ONLY=1 BCP_SKIP_REMOTE_CHECK=1 \
+  bash examples/sglang_multiturn/run_qwen3-30b-a3b_bcp_echo-ca_fully_async_4node.sh
+```
+
+Omit `BCP_SKIP_REMOTE_CHECK=1` to include passwordless-SSH checks for every
+configured node. Shell command tracing is disabled by default so secrets cannot
+be written to logs; set `BCP_SHELL_TRACE=1` only for non-sensitive debugging.
 
 ### 🔬 Reproducing Ablations
 

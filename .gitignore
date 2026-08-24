@@ -120,6 +120,8 @@ ENV/
 
 # ckpt
 *.lock
+/ckpt/
+/val_outputs/
 
 # data
 *.parquet
@@ -130,3 +132,7 @@ logs
 log
 outputs
 .historyval_outputs/
+# LTP runtime coordination and local credentials.
+.ltp_runtime/
+ltp/secrets.env
+ltp/secrets.env.local
