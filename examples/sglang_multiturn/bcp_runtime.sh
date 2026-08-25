@@ -60,18 +60,25 @@ bcp_configure_python() {
 
     local python_version
     local venv_site_packages
+    local transformer_engine_overlay
     python_version="$("$python_bin" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
     venv_site_packages="${venv_path}/lib/python${python_version}/site-packages"
     if [ ! -d "$venv_site_packages" ]; then
         echo "[config] ERROR: packaged site-packages do not match Python ${python_version}: ${venv_site_packages}"
         return 1
     fi
-    export PYTHONPATH="${project_dir}:${venv_site_packages}${PYTHONPATH:+:${PYTHONPATH}}"
+    transformer_engine_overlay="${ECHO_TRANSFORMER_ENGINE_OVERLAY:-${venv_path}/../overlays/transformer-engine-2.5.0-glibc236}"
+    if [ -d "${transformer_engine_overlay}/transformer_engine" ]; then
+        export PYTHONPATH="${project_dir}:${transformer_engine_overlay}:${venv_site_packages}${PYTHONPATH:+:${PYTHONPATH}}"
+        echo "[config] Using Transformer Engine overlay: ${transformer_engine_overlay}"
+    else
+        export PYTHONPATH="${project_dir}:${venv_site_packages}${PYTHONPATH:+:${PYTHONPATH}}"
+    fi
 
     local nvidia_site_packages="${venv_site_packages}/nvidia"
     local cuda_library_path=""
     local cuda_component
-    for cuda_component in nvjitlink cusparse cublas cudnn cuda_runtime; do
+    for cuda_component in nvjitlink cusparse cublas cudnn cuda_runtime cuda_nvrtc; do
         if [ -d "${nvidia_site_packages}/${cuda_component}/lib" ]; then
             cuda_library_path+="${nvidia_site_packages}/${cuda_component}/lib:"
         fi
@@ -134,18 +141,22 @@ bcp_validate_training_paths() {
     local expected_model_type="$7"
 
     local required_command
-    for required_command in ssh curl lsof setsid tee; do
+    for required_command in ssh curl setsid tee; do
         if ! command -v "$required_command" >/dev/null 2>&1; then
             echo "[config] ERROR: required command is unavailable: ${required_command}"
             return 1
         fi
     done
+    if ! command -v lsof >/dev/null 2>&1 && ! command -v fuser >/dev/null 2>&1; then
+        echo "[config] ERROR: either lsof or fuser is required to manage port listeners"
+        return 1
+    fi
 
     local required_path
     for required_path in \
         "$project_dir" \
         "${project_dir}/verl/__init__.py" \
-        "${venv_path}/bin/python3" \
+        "$PYTHON_BIN" \
         "${venv_path}/bin/ray" \
         "$model_path" \
         "${model_path}/config.json" \
@@ -182,6 +193,7 @@ bcp_validate_remote_paths() {
     local model_path="$3"
     local train_file="$4"
     local val_file="$5"
+    local python_bin="${ECHO_PYTHON_BIN:-${venv_path}/bin/python3}"
 
     if bcp_is_true "${BCP_SKIP_REMOTE_CHECK:-False}"; then
         echo "[preflight] Skipping remote SSH checks (BCP_SKIP_REMOTE_CHECK=True)."
@@ -192,7 +204,7 @@ bcp_validate_remote_paths() {
     for ip in $WORKER_IPS; do
         local remote_status=0
         ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=5 "$ip" \
-            "test -f '${model_path}/config.json' && test -x '${venv_path}/bin/python3' && test -x '${venv_path}/bin/ray' && test -f '${project_dir}/verl/__init__.py' && test -f '${train_file}' && test -f '${val_file}'" \
+            "test -f '${model_path}/config.json' && test -x '${python_bin}' && test -x '${venv_path}/bin/ray' && test -f '${project_dir}/verl/__init__.py' && test -f '${train_file}' && test -f '${val_file}'" \
             2>/dev/null || remote_status=$?
         if [ "$remote_status" -eq 255 ]; then
             echo "[config] ERROR: cannot connect to node ${ip} with passwordless SSH."
@@ -259,6 +271,8 @@ bcp_prepare_service_env() {
     WANDB_API_KEY="${WANDB_API_KEY:-}"
     WANDB_ENTITY="${WANDB_ENTITY:-}"
     WANDB_MODE="${WANDB_MODE:-online}"
+    WANDB_BASE_URL="${WANDB_BASE_URL:-https://api.wandb.ai}"
+    WANDB_PROJECT="${WANDB_PROJECT:-echo}"
     http_proxy="${http_proxy:-}"
     https_proxy="${https_proxy:-}"
     HTTP_PROXY="${HTTP_PROXY:-$http_proxy}"
@@ -266,11 +280,11 @@ bcp_prepare_service_env() {
     no_proxy="${no_proxy:-}"
     NO_PROXY="${NO_PROXY:-$no_proxy}"
     export BCP_JUDGE_API_BASE BCP_JUDGE_MODEL BCP_JUDGE_API_KEY_ENV
-    export WANDB_API_KEY WANDB_ENTITY WANDB_MODE
+    export WANDB_API_KEY WANDB_ENTITY WANDB_MODE WANDB_BASE_URL WANDB_PROJECT
     export http_proxy https_proxy HTTP_PROXY HTTPS_PROXY no_proxy NO_PROXY
 
     local bcp_ray_env_vars
-    bcp_ray_env_vars="PYTHONPATH,CUDA_DEVICE_MAX_CONNECTIONS,PYTHONUNBUFFERED,BCP_JUDGE_API_BASE,BCP_JUDGE_MODEL,BCP_JUDGE_API_KEY_ENV,BCP_JUDGE_MAX_TOKENS,BCP_JUDGE_TEMPERATURE,BCP_JUDGE_TOP_P,BCP_JUDGE_TOP_K,${BCP_JUDGE_API_KEY_ENV},WANDB_API_KEY,WANDB_ENTITY,WANDB_MODE,WANDB_BASE_URL,http_proxy,https_proxy,HTTP_PROXY,HTTPS_PROXY,no_proxy,NO_PROXY,XDG_CACHE_HOME,HF_HOME,PIP_CACHE_DIR,UV_CACHE_DIR,FLASHINFER_WORKSPACE_BASE,TORCHINDUCTOR_CACHE_DIR,TORCHINDUCTOR_COMPILE_THREADS,CUDA_CACHE_PATH,SGLANG_FORCE_NATIVE_CUSTOM_OPS"
+    bcp_ray_env_vars="PYTHONPATH,CUDA_DEVICE_MAX_CONNECTIONS,PYTHONUNBUFFERED,BCP_JUDGE_API_BASE,BCP_JUDGE_MODEL,BCP_JUDGE_API_KEY_ENV,BCP_JUDGE_MAX_TOKENS,BCP_JUDGE_TEMPERATURE,BCP_JUDGE_TOP_P,BCP_JUDGE_TOP_K,${BCP_JUDGE_API_KEY_ENV},WANDB_API_KEY,WANDB_ENTITY,WANDB_MODE,WANDB_BASE_URL,WANDB_PROJECT,http_proxy,https_proxy,HTTP_PROXY,HTTPS_PROXY,no_proxy,NO_PROXY,XDG_CACHE_HOME,HF_HOME,PIP_CACHE_DIR,UV_CACHE_DIR,FLASHINFER_WORKSPACE_BASE,TORCHINDUCTOR_CACHE_DIR,TORCHINDUCTOR_COMPILE_THREADS,CUDA_CACHE_PATH,SGLANG_FORCE_NATIVE_CUSTOM_OPS"
     VERL_RAY_RUNTIME_ENV_VARS="${VERL_RAY_RUNTIME_ENV_VARS:+${VERL_RAY_RUNTIME_ENV_VARS},}${bcp_ray_env_vars}"
     export VERL_RAY_RUNTIME_ENV_VARS
 
@@ -302,7 +316,11 @@ bcp_stop_port_listeners() {
     local pid
     local attempt
 
-    pids="$(lsof -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+    if command -v lsof >/dev/null 2>&1; then
+        pids="$(lsof -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+    else
+        pids="$(fuser -n tcp "$port" 2>/dev/null || true)"
+    fi
     if [ -z "$pids" ]; then
         return 0
     fi
@@ -311,7 +329,11 @@ bcp_stop_port_listeners() {
         kill "$pid" 2>/dev/null || true
     done
     for ((attempt = 0; attempt < 25; attempt++)); do
-        pids="$(lsof -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+        if command -v lsof >/dev/null 2>&1; then
+            pids="$(lsof -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+        else
+            pids="$(fuser -n tcp "$port" 2>/dev/null || true)"
+        fi
         [ -z "$pids" ] && return 0
         sleep 0.2
     done

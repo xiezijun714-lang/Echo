@@ -12,9 +12,12 @@ export VENV_PATH="${ECHO_VENV_PATH:-${PACKAGE_ROOT}/venv_echo_megatron}"
 export ECHO_PYTHON_BIN="${ECHO_PYTHON_BIN:-${PACKAGE_ROOT}/python/cpython-3.10.16-linux-x86_64-gnu/bin/python3.10}"
 export MODEL_PATH="${ECHO_MODEL_PATH:-/mnt/cfs_bj_mt/workspace/qiruyi/0-Models/Qwen3-32B}"
 export RETRIEVER_MODEL_PATH="${ECHO_RETRIEVER_MODEL_PATH:-/mnt/cfs_bj_mt/workspace/qiruyi/0-Models/Qwen3-Embedding-8B}"
-export DATA_DIR="${ECHO_DATA_DIR:-${PACKAGE_ROOT}/dataset/browsecomp-plus-processed}"
+export DATA_DIR="${ECHO_DATA_DIR:-${PACKAGE_ROOT}/dataset/browsecomp-plus-context-folding}"
 export RETRIEVER_CORPUS_FILE="${ECHO_RETRIEVER_CORPUS_FILE:-${PACKAGE_ROOT}/downloads/browsecomp-plus-corpus/data}"
 export RETRIEVER_DENSE_CACHE="${ECHO_RETRIEVER_DENSE_CACHE:-${PACKAGE_ROOT}/browsecomp_dense_cache_tevatron.pkl}"
+if [[ -z "${BCP_ENV_FILE:-}" && -f "${PROJECT_DIR}/ltp/secrets.env.local" ]]; then
+    export BCP_ENV_FILE="${PROJECT_DIR}/ltp/secrets.env.local"
+fi
 
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${PACKAGE_ROOT}/.cache}"
 export HF_HOME="${HF_HOME:-${PACKAGE_ROOT}/.cache/huggingface}"
@@ -25,7 +28,14 @@ export TORCHINDUCTOR_CACHE_DIR="${TORCHINDUCTOR_CACHE_DIR:-${PACKAGE_ROOT}/.cach
 export CUDA_CACHE_PATH="${CUDA_CACHE_PATH:-${PACKAGE_ROOT}/.cache/cuda}"
 mkdir -p "$HF_HOME" "$PIP_CACHE_DIR" "$UV_CACHE_DIR" "$TORCHINDUCTOR_CACHE_DIR" "$CUDA_CACHE_PATH"
 unset TRANSFORMERS_CACHE
-export WANDB_MODE="${ECHO_WANDB_MODE:-offline}"
+case "$PROFILE" in
+    smoke|tuned-smoke) export WANDB_MODE="${ECHO_WANDB_MODE:-disabled}" ;;
+    *)
+        if [[ -n "${ECHO_WANDB_MODE:-}" ]]; then
+            export WANDB_MODE="$ECHO_WANDB_MODE"
+        fi
+        ;;
+esac
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1,2,3,4,5,6,7}"
 export BCP_SKIP_REMOTE_CHECK="${BCP_SKIP_REMOTE_CHECK:-True}"
 # Keep the default below the host's ephemeral port range (10000-61000).
