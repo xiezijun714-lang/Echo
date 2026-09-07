@@ -21,6 +21,7 @@ import os
 import pickle
 import re
 import sys
+import threading
 from concurrent.futures import ProcessPoolExecutor
 from typing import List, Optional
 
@@ -192,6 +193,7 @@ class DenseRetriever:
         self.batch_size = batch_size
         self.max_doc_length = max_doc_length
         self._model_on_gpu = False
+        self._move_lock = threading.Lock()  # guards the lazy CPU -> GPU move
         self.device = None                 # set lazily on first GPU use
         self.model = None                  # set lazily or eagerly depending on cache
 
@@ -304,10 +306,23 @@ class DenseRetriever:
     def _ensure_model_on_gpu(self):
         """Move model to GPU if not already there. Lazily creates CUDA device on first call."""
         import torch
-        if self.device is None:
-            self.device = torch.device(self._device_str)
-        if not self._model_on_gpu:
-            self.model = self.model.half().to(self.device)
+        # Several /retrieve requests run concurrently in the executor pool and all of
+        # them reach this point before the first move finishes. Module._apply mutates
+        # param.data in place, so two threads converting the same module tree leave it
+        # part float32 / part float16 and the next matmul dies with "expected scalar
+        # type Float but found Half". Serialise the move and re-check inside the lock.
+        if self._model_on_gpu:
+            return
+        with self._move_lock:
+            if self._model_on_gpu:
+                return
+            if self.device is None:
+                self.device = torch.device(self._device_str)
+            if self.device.type == "cuda":
+                self.model = self.model.half().to(self.device)
+            else:
+                # CPU fp16 matmul is unsupported for this model; stay in float32.
+                self.model = self.model.to(self.device)
             self._model_on_gpu = True
 
     # ------------------------------------------------------------------
@@ -377,7 +392,7 @@ class DenseRetriever:
             emb = self._last_token_pool(out.last_hidden_state, enc["attention_mask"])
             emb = F.normalize(emb, p=2, dim=1)
             all_embs.append(emb.cpu().float().numpy())
-            if (i // self.batch_size) % 50 == 0:
+            if len(texts) > self.batch_size and (i // self.batch_size) % 50 == 0:
                 print(f"  Encoded {i + len(batch)}/{len(texts)}", flush=True)
         # Keep model on GPU after first query for fast subsequent queries.
         # Model was loaded on CPU at startup to avoid interfering with SGLang CUDA graph capture.
@@ -394,22 +409,37 @@ class DenseRetriever:
 
     # ------------------------------------------------------------------
     def search(self, query: str, topk: int = 3) -> List[dict]:
+        return self.search_batch([query], topk)[0]
+
+    def search_batch(self, queries: List[str], topk: int = 3) -> List[List[dict]]:
+        """Encode every query in one forward pass and run a single Faiss query.
+
+        The agent loop issues one /retrieve per tool call, and several loops hit
+        the server at once. Encoding queries one at a time made the embedding
+        forward pass the throughput ceiling for the whole trainer, so batch the
+        whole request instead.
+        """
+        if not queries:
+            return []
         query_emb = self._encode(
-            [query],
+            queries,
             instruction="Given a question, retrieve relevant passages that help answer the question",
             max_length=512,
-        )  # (1, D)
+        )  # (B, D)
         scores, indices = self.index.search(query_emb, topk)
-        results = []
-        for score, idx in zip(scores[0], indices[0]):
-            if idx < 0:
-                continue
-            results.append({
-                "docid": self.docids[idx],
-                "document": {"contents": self.contents[idx]},
-                "score": float(score),
-            })
-        return results
+        batched = []
+        for row_scores, row_indices in zip(scores, indices):
+            results = []
+            for score, idx in zip(row_scores, row_indices):
+                if idx < 0:
+                    continue
+                results.append({
+                    "docid": self.docids[idx],
+                    "document": {"contents": self.contents[idx]},
+                    "score": float(score),
+                })
+            batched.append(results)
+        return batched
 
     def embed(self, texts: List[str], instruction: str = "") -> np.ndarray:
         """Public method used by /embed endpoint (for reward semantic judge)."""
@@ -449,7 +479,12 @@ app = FastAPI()
 retriever = None          # BM25Retriever or DenseRetriever
 search_pool = None        # ProcessPoolExecutor (BM25 only)
 _bm25_cache_path = None   # for pool workers
-_search_lock = asyncio.Lock()  # serialize GPU queries in dense mode
+# Dense mode used to serialise every request behind a single lock, which capped
+# the whole trainer at roughly one retrieval per second. Allow several requests
+# in flight instead; the bound still protects against unbounded memory growth
+# when many agent loops call the tool simultaneously.
+_search_semaphore: Optional[asyncio.Semaphore] = None
+_embed_lock = asyncio.Lock()  # /embed encodes long texts; keep it serialised
 
 
 class RetrieveRequest(BaseModel):
@@ -473,12 +508,13 @@ async def retrieve(req: RetrieveRequest):
         result = await asyncio.gather(*futures)
         return {"result": list(result)}
     else:
-        # Dense mode: GPU search (serialize to avoid OOM)
-        async with _search_lock:
+        # Dense mode: batch the request's queries into one forward pass and let
+        # a bounded number of requests run concurrently.
+        async with _search_semaphore:
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(
                 None,
-                lambda: [retriever.search(q, req.topk) for q in req.queries],
+                lambda: retriever.search_batch(req.queries, req.topk),
             )
         return {"result": result}
 
@@ -488,7 +524,7 @@ async def embed(req: EmbedRequest):
     """Return L2-normalized embeddings for reward semantic judgment."""
     if not hasattr(retriever, "embed"):
         return {"error": "embed not supported in BM25 mode", "embeddings": None}
-    async with _search_lock:
+    async with _embed_lock:
         loop = asyncio.get_event_loop()
         embs = await loop.run_in_executor(
             None, lambda: retriever.embed(req.texts, req.instruction)
@@ -646,7 +682,7 @@ def health():
 # ---------------------------------------------------------------------------
 
 def main():
-    global retriever, search_pool, _bm25_cache_path
+    global retriever, search_pool, _bm25_cache_path, _search_semaphore
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["bm25", "dense"], default="bm25")
@@ -665,6 +701,12 @@ def main():
     parser.add_argument("--device", default="cuda:7")
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--dense_cache", default="/root/paddlejob/workspace/xzj/browsecomp_dense_cache.pkl")
+    parser.add_argument("--max_concurrent_search", type=int, default=8,
+                        help="Concurrent /retrieve requests allowed in dense mode. Raise it when the "
+                             "embedding model runs on GPU, lower it if the host runs out of memory.")
+    parser.add_argument("--torch_threads", type=int, default=0,
+                        help="torch.set_num_threads for CPU encoding. 0 keeps the torch default, which "
+                             "on this host only reached ~3 of 192 cores.")
     args = parser.parse_args()
 
     if args.mode == "bm25":
@@ -694,7 +736,14 @@ def main():
             batch_size=args.batch_size,
             corpus_file=args.corpus_file,
         )
+        if args.torch_threads > 0:
+            import torch
+            torch.set_num_threads(args.torch_threads)
+            print(f"torch CPU threads: {torch.get_num_threads()}", flush=True)
+        print(f"Dense retrieval concurrency: {args.max_concurrent_search}", flush=True)
         # No process pool for dense mode
+
+    _search_semaphore = asyncio.Semaphore(max(1, args.max_concurrent_search))
 
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
 

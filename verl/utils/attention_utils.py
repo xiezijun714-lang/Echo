@@ -27,7 +27,29 @@ def _get_attention_functions() -> tuple[Callable, Callable, Callable, Callable]:
     if is_torch_npu_available(check_device=False):
         from verl.utils.npu_flash_attn_utils import index_first_axis, pad_input, rearrange, unpad_input
     else:
-        from flash_attn.bert_padding import index_first_axis, pad_input, rearrange, unpad_input
+        try:
+            from flash_attn.bert_padding import index_first_axis, pad_input, rearrange, unpad_input
+        except ImportError:
+            # flash-attn ships no Blackwell/SM100 wheel, so the CUDA-13 environment has
+            # no flash_attn at all. Only these padding helpers are needed here, and
+            # transformers carries pure-PyTorch copies of unpad/pad (added for fa3,
+            # which is in the same position); return tuples and shapes match.
+            from einops import rearrange
+            from transformers.modeling_flash_attention_utils import (
+                _pad_input as pad_input,
+                _unpad_input as unpad_input,
+            )
+
+            # transformers' _index_first_axis is NOT a drop-in: it flattens the first
+            # two dimensions before indexing, which is right when it is fed a
+            # (batch, seqlen, ...) tensor from _unpad_input, but wrong for verl's
+            # call sites, which pass an already-flattened (total_tokens, feature)
+            # tensor and would silently lose the feature axis. bert_padding indexes
+            # the first axis only, which plain advanced indexing reproduces exactly
+            # (and it is differentiable, as the entropy path needs).
+            def index_first_axis(tensor, indices):
+                assert tensor.ndim >= 2, f"expected a (total_tokens, ...) tensor, got {tuple(tensor.shape)}"
+                return tensor[indices]
 
     _index_first_axis, _pad_input, _rearrange, _unpad_input = index_first_axis, pad_input, rearrange, unpad_input
 

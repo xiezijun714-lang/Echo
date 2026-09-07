@@ -1,0 +1,18 @@
+# Blackwell/SM100 rollout environment used with Qwen3-32B.
+# Keep this separate from requirements-cuda.txt, which documents the H800
+# paper environment and its CUDA 12 stack.
+#
+# CUDA 13 runtime libraries and NCCL 2.29.7 are supplied by the node image.
+torch==2.13.0
+torchvision==0.28.0
+torchaudio==2.11.0
+sglang==0.5.18
+sglang-kernel==0.4.6.post1
+flashinfer-python==0.6.17
+transformers==5.12.1
+huggingface-hub>=1.5.0,<2.0
+xgrammar==0.2.1
+apache-tvm-ffi==0.1.11
+sgl-deep-gemm==0.1.5.post3
+gguf
+timm

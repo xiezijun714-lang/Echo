@@ -70,10 +70,13 @@ def _lazy_import_sglang():
     from sglang.srt.entrypoints.http_server import (
         ServerArgs as ServerArgs_,
         _GlobalState as _GlobalState_,
-        _launch_subprocesses as _launch_subprocesses_,
         app as app_,
         set_global_state as set_global_state_,
     )
+    # sglang >= 0.5.10 moved `_launch_subprocesses` from a module-level function
+    # in http_server.py to a classmethod on Engine. Adapt to the new location.
+    from sglang.srt.entrypoints.engine import Engine
+    _launch_subprocesses_ = Engine._launch_subprocesses
     from sglang.srt.managers.io_struct import (
         GenerateReqInput as GenerateReqInput_,
         ReleaseMemoryOccupationReqInput as ReleaseMemoryOccupationReqInput_,
@@ -188,9 +191,10 @@ class SGLangHttpServer:
                 profiler_config = None
         self.profiler_controller = DistProfiler(self.replica_rank, config=profiler_config, tool_config=tool_config)
 
-        # For multi-node, we need dist_init_addr so nodes can coordinate NCCL init.
-        # For single-node, let SGLang handle port selection internally via nccl_port,
-        # which also avoids port conflicts.
+        # Reserve a distinct dist_init port up-front. Multi-node replicas share
+        # one master port; single-node replicas each need their own, otherwise
+        # multiple co-located servers race on SGLang's internal get_free_port()
+        # (TCPStore EADDRINUSE).
         self._master_address = None
         self._master_port = None
         self._master_sock = None
@@ -201,6 +205,9 @@ class SGLangHttpServer:
                 f"SGLangHttpServer, replica_rank: {self.replica_rank}, "
                 f"master address: {self._master_address}, port: {self._master_port}"
             )
+        elif self.nnodes == 1:
+            self._master_address = self._server_address
+            self._master_port, self._master_sock = get_free_port(self._server_address, with_alive_sock=True)
 
     def get_master_address(self):
         """Get master address and port for init NCCL process group."""
@@ -268,8 +275,8 @@ class SGLangHttpServer:
             **engine_kwargs,
         }
 
-        # Only set dist_init_addr for multi-node; for single-node, let SGLang
-        # handle port selection internally via nccl_port to avoid conflicts.
+        # Set a distinct dist_init_addr for every replica so multiple
+        # co-located servers don't race on SGLang's internal get_free_port().
         if self.nnodes > 1:
             dist_init_addr = (
                 f"[{self._master_address}]:{self._master_port}"
@@ -277,6 +284,10 @@ class SGLangHttpServer:
                 else f"{self._master_address}:{self._master_port}"
             )
             args["dist_init_addr"] = dist_init_addr
+        elif self.nnodes == 1:
+            # Release the reservation so the scheduler subprocess can bind it.
+            self._master_sock.close()
+            args["dist_init_addr"] = f"{self._master_address}:{self._master_port}"
 
         if self.config.prometheus.enable:
             if self.config.prometheus.served_model_name:
@@ -320,17 +331,24 @@ class SGLangHttpServer:
             k: v for k, v in args.items()
             if k in [f.name for f in dataclasses.fields(ServerArgs)]
         })
-        if version.parse(sglang.__version__) >= version.parse("0.5.7"):
-            self.tokenizer_manager, self.template_manager, self.scheduler_info, *_ = _launch_subprocesses(
-                server_args=server_args,
-                init_tokenizer_manager_func=sglang.srt.entrypoints.engine.init_tokenizer_manager,
-                run_scheduler_process_func=sglang.srt.entrypoints.engine.run_scheduler_process,
-                run_detokenizer_process_func=sglang.srt.entrypoints.engine.run_detokenizer_process,
-            )
-        else:
-            self.tokenizer_manager, self.template_manager, self.scheduler_info, *_ = _launch_subprocesses(
-                server_args=server_args
-            )
+        (
+            self.tokenizer_manager,
+            self.template_manager,
+            _port_args,
+            _scheduler_init_result,
+            _subprocess_watchdog,
+            *_,
+        ) = _launch_subprocesses(
+            server_args=server_args,
+            init_tokenizer_manager_func=sglang.srt.entrypoints.engine.init_tokenizer_manager,
+            run_scheduler_process_func=sglang.srt.entrypoints.engine.run_scheduler_process,
+            run_detokenizer_process_func=sglang.srt.entrypoints.engine.run_detokenizer_process,
+        )
+        # sglang >= 0.5.10: scheduler_info is now `scheduler_infos[0]` on the
+        # SchedulerInitResult, and the watchdog is returned separately.
+        self.scheduler_info = _scheduler_init_result.scheduler_infos[0]
+        if self.tokenizer_manager is not None:
+            self.tokenizer_manager._subprocess_watchdog = _subprocess_watchdog
 
         # In multi-node cases, non-zero rank nodes should not launch http server.
         if self.node_rank > 0:

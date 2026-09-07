@@ -217,6 +217,11 @@ The script reads the key from the environment variable named by
 `BCP_JUDGE_API_KEY_ENV` (default `ONEAPI_KEY`) and fails fast if it is unset, so
 there are no hardcoded credentials. Use your own provider and key.
 
+The launchers also load `${PROJECT_DIR}/.env` when it exists. Start from
+`.env.example`; `.env` is ignored by git and is intended for machine-specific
+paths and endpoint settings. Keep API keys in the process environment rather
+than in that file.
+
 For multi-node runs, the node list is resolved by `bcp_node_utils.sh` from
 `TRAINER_IPS` (or the cluster-provided `PADDLE_TRAINERS`).
 
@@ -238,6 +243,18 @@ Run from the project root, e.g.:
 bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
 ```
 
+To validate paths, imports, node selection, parallelism, and generated tool
+configuration without starting Ray or using GPUs:
+
+```bash
+BCP_PREFLIGHT_ONLY=1 BCP_SKIP_REMOTE_CHECK=1 \
+  bash examples/sglang_multiturn/run_qwen3-30b-a3b_bcp_echo-ca_fully_async_4node.sh
+```
+
+Omit `BCP_SKIP_REMOTE_CHECK=1` to include passwordless-SSH checks for every
+configured node. Shell command tracing is disabled by default so secrets cannot
+be written to logs; set `BCP_SHELL_TRACE=1` only for non-sensitive debugging.
+
 ### 🔬 Reproducing Ablations
 
 Ablation variants reuse the same core scripts and are toggled through environment
@@ -251,7 +268,11 @@ variables (see the top of each script for the full list). Key knobs:
 | `WORKING_CONTEXT_LENGTH` | `32768` | Single-segment token threshold that triggers compression |
 | `MAX_SUMMARY_ROUNDS` | `5` | Max compression rounds before a rollout is marked overlong |
 | `SEMANTIC_SELECTION_FULL_OBSERVATION` | `False` | When using `semantic_selection`, retrieve full observations instead of compact findings |
-| `ECHO_CREDIT_PENALTY_RATIO` | `0.0` | Down-weight (vs. 1.0 for credited tokens) applied to non-credited tokens |
+| `ECHO_NEG_PENALTY_RATIO` | `0.0` | Scale for dense signed updates on negative rollouts |
+| `ECHO_GRAPH_GAMMA_TURN` | `1.0` | Discount on local consecutive-turn graph edges |
+| `ECHO_GRAPH_GAMMA_SEGMENT` | `0.9` | Discount across explicit selection boundaries |
+| `ECHO_GRAPH_AGGREGATION` | `sum` | Combine downstream graph credit with `sum` or `max` |
+| `ECHO_GRAPH_CLIP_MAX` | `1.0` | Positive graph-credit cap; use `none` to disable clipping |
 
 Examples reproducing paper ablations (all on top of the ECHO async script):
 

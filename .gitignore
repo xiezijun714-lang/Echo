@@ -120,6 +120,8 @@ ENV/
 
 # ckpt
 *.lock
+/ckpt/
+/val_outputs/
 
 # data
 *.parquet

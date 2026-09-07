@@ -23,8 +23,13 @@ Export the required paths (`VENV_PATH`, `MODEL_PATH`, `RETRIEVER_MODEL_PATH`,
 bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
 ```
 
+The scripts load an optional repository-root `.env` and always put the current
+checkout first on `PYTHONPATH`, even when reusing a virtualenv installed against
+an older verl checkout. Run a local-only startup check with
+`BCP_PREFLIGHT_ONLY=1 BCP_SKIP_REMOTE_CHECK=1`; remove the second flag to verify
+SSH access and shared paths on every training node.
+
 A dense retrieval service over the BrowseComp-Plus corpus
 (`browsecomp_retrieval_server.py`) is started automatically and health-checked by
 each script. Ablations reuse these scripts and are toggled through environment
 variables documented at the top of each script.
-
