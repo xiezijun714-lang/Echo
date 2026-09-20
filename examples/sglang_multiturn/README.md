@@ -8,6 +8,8 @@ and required environment variables.
 ## Scripts
 
 - `run_bcp_echo_graph_1node_blackwell.sh` — ECHO-Graph on one Blackwell node
+- `run_bcp_echo_ca_1node_blackwell.sh` — ECHO-CA with token credit on one Blackwell node
+- `run_bcp_grpo_1node_blackwell.sh` — GRPO baseline on one Blackwell node
 
 ## Usage
 

@@ -26,7 +26,7 @@ if [ -z "${TRAINER_IPS:-}" ] && [ -n "${PADDLE_TRAINERS:-}" ]; then
     export TRAINER_IPS
 fi
 
-EXPERIMENT_NAME="qwen3-32b-bcp-echo-graph-1node-32k-s5"
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-qwen3-32b-bcp-echo-graph-1node-32k-s5}"
 if [ "${1:-}" = "--bcp-experiment-name" ]; then
     if [ -z "${2:-}" ]; then
         echo "[config] ERROR: --bcp-experiment-name requires a value."
@@ -163,6 +163,8 @@ ECHO_GRAPH_GAMMA_SEGMENT=${ECHO_GRAPH_GAMMA_SEGMENT:-0.9}
 ECHO_GRAPH_AGGREGATION=${ECHO_GRAPH_AGGREGATION:-sum}
 ECHO_GRAPH_CLIP_MAX=${ECHO_GRAPH_CLIP_MAX:-5}
 ECHO_POLICY_LOSS_MODE=${ECHO_POLICY_LOSS_MODE:-vanilla}
+BCP_ALGORITHM=${BCP_ALGORITHM:-supo}
+BCP_CONTEXT_COMPRESSION_METHOD=${BCP_CONTEXT_COMPRESSION_METHOD:-echo_e2e}
 MAX_SUMMARY_ROUNDS=${MAX_SUMMARY_ROUNDS:-5}
 MAX_MODEL_LEN=${MAX_MODEL_LEN:-40960}
 
@@ -227,6 +229,7 @@ fi
 echo "[config] context: prompt=${MAX_PROMPT_LENGTH}, response=${MAX_RESPONSE_LENGTH}, working=${WORKING_CONTEXT_LENGTH}, max_model=${MAX_MODEL_LEN}"
 echo "[config] summary: max_summary_rounds=${MAX_SUMMARY_ROUNDS}, effective_context=$((WORKING_CONTEXT_LENGTH * (MAX_SUMMARY_ROUNDS + 1)))"
 echo "[config] echo selector: max_new_tokens=${ECHO_SELECTION_MAX_NEW_TOKENS}, recent_turns=${ECHO_RECENT_TURNS}"
+echo "[config] algorithm=${BCP_ALGORITHM}, context_compression=${BCP_CONTEXT_COMPRESSION_METHOD}"
 echo "[config] echo credit: method=${ECHO_CREDIT_METHOD}, neg_penalty_ratio=${ECHO_NEG_PENALTY_RATIO}, graph_gamma_turn=${ECHO_GRAPH_GAMMA_TURN}, graph_gamma_segment=${ECHO_GRAPH_GAMMA_SEGMENT}, graph_aggregation=${ECHO_GRAPH_AGGREGATION}, graph_clip_max=${ECHO_GRAPH_CLIP_MAX}, policy_loss=${ECHO_POLICY_LOSS_MODE}"
 echo "[config] parallel: actor TP/PP/CP=${ACTOR_TP}/${ACTOR_PP}/${ACTOR_CP}, ref TP/PP/CP=${REF_TP}/${REF_PP}/${REF_CP}, rollout TP=${ROLLOUT_TP}"
 echo "[config] token budget per GPU: actor=${ACTOR_TOKEN_BUDGET_PER_GPU}, ref=${REF_TOKEN_BUDGET_PER_GPU}"
@@ -345,7 +348,7 @@ cd "$PROJECT_DIR"
 "$PYTHON_BIN" -m verl.trainer.main_ppo \
     --config-path="$PROJECT_DIR/examples/sglang_multiturn/config" \
     --config-name='bcp_multiturn_megatron_grpo' \
-    algorithm.adv_estimator=supo \
+    algorithm.adv_estimator=${BCP_ALGORITHM} \
     +algorithm.echo_credit_method=${ECHO_CREDIT_METHOD} \
     +algorithm.echo_neg_penalty_ratio=${ECHO_NEG_PENALTY_RATIO} \
     +algorithm.echo_graph_gamma_turn=${ECHO_GRAPH_GAMMA_TURN} \
@@ -407,7 +410,7 @@ cd "$PROJECT_DIR"
     actor_rollout_ref.rollout.multi_turn.max_parallel_calls=${MAX_PARALLEL_CALLS} \
     actor_rollout_ref.rollout.multi_turn.max_tool_response_length=${MAX_TOOL_RESPONSE_LENGTH} \
     actor_rollout_ref.rollout.multi_turn.tool_config_path="$TOOL_CONFIG_PATH" \
-    +actor_rollout_ref.rollout.multi_turn.context_compression_method=echo_e2e \
+    +actor_rollout_ref.rollout.multi_turn.context_compression_method=${BCP_CONTEXT_COMPRESSION_METHOD} \
     +actor_rollout_ref.rollout.multi_turn.enable_summarization=True \
     +actor_rollout_ref.rollout.multi_turn.max_summary_rounds=${MAX_SUMMARY_ROUNDS} \
     +actor_rollout_ref.rollout.multi_turn.working_context_length=${WORKING_CONTEXT_LENGTH} \
