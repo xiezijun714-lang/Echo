@@ -1,6 +1,17 @@
-# Dependabot version updates are intentionally disabled for this repository.
+# Automatic dependency PRs are intentionally paused for this repository.
 # Dependencies are pinned to the exact versions used for the paper and are tightly
 # coupled with the CUDA-compiled stack (see requirements-cuda.txt), so automatic
 # version bumps could break reproducibility.
+# Keep Dependabot alerts available for manual review; this file only controls PRs.
 version: 2
-updates: []
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    # This limit disables version-update PRs, but does not cover security PRs.
+    open-pull-requests-limit: 0
+    # Also pause security-update PRs for the pinned Python/CUDA environment.
+    # Remove this rule to resume automatic security fixes after compatibility review.
+    ignore:
+      - dependency-name: "*"
