@@ -1,73 +1,61 @@
-### Adding a New Workflow
+# Echo automation
 
-When adding a new workflow for continuous integration (CI), you have two runner options: a fixed runner or a machine from the vemlp.
+Echo keeps two workflows active:
 
-- **Fixed Runner**: To use a fixed runner, specify it in your workflow using the `runs-on` keyword, like `runs-on: [L20x8]`. 
-- **Vemlp Runner**: Opting for a Vemlp machine allows you to launch tasks elastically. 
+| Workflow | Runs on | Purpose |
+| --- | --- | --- |
+| `echo-ci.yml` | Pull requests, pushes to `main`, manual dispatch | Compile Python sources with Python 3.10 and validate editable-install metadata without installing CUDA/training dependencies. |
+| `secrets_scan.yml` | Pull requests, pushes to `main` or `v0.*` | Preserve the existing TruffleHog secret scan. |
 
-Here is a template to assist you. This template is designed for using Vemlp machines. Currently, for each workflow, you need to create a `setup` and a `cleanup` job. When using this template, the main parts you need to modify are the `IMAGE` environment variable and the specific `job steps`.
+These are basic smoke checks. They do not validate training behavior,
+dependency compatibility, type coverage, or GPU/NPU execution. Training changes
+still need validation in the pinned environment documented in the root README.
+The local `.pre-commit-config.yaml` remains available for developers.
 
-```yaml
-name: Your Default Workflow
+## Archived upstream workflows
 
-on:
-  push:
-    branches:
-      - main
-      - v0.*
-  pull_request:
-    branches:
-      - main
-      - v0.*
-    paths:
-      - "**/*.py"
-      - ".github/workflows/template.yml"
+The 34 inherited verl workflows and their original README are preserved unchanged
+in [`.github/legacy-workflows`](../legacy-workflows/). GitHub only discovers
+workflows under `.github/workflows`, so these archived definitions do not create
+PR checks, scheduled runs, runner cleanup jobs, or autofix PRs.
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+They depend on upstream infrastructure or files not provided by Echo, including
+verl-project runners, model/dataset caches, `requirements-test.txt`, and
+`tests/special_sanity`. Some cleanup jobs use `if: always()` even when runner
+creation is skipped outside verl-project. The old pre-commit workflow also runs
+against every tracked file and reports existing lint/formatting issues on a schedule.
 
-permissions:
-  contents: read
+Do not copy an archived workflow back unchanged. Adapt its triggers, runner,
+permissions, dependencies, and test paths to Echo before enabling it.
 
-env:
-  IMAGE: "your vemlp image" # e.g. "verl-ci-cn-beijing.cr.volces.com/verlai/verl:sgl056.latest"
-  DYNAMIC_RUNNER_URL: "https://sd10g3clalm04ug7alq90.apigateway-cn-beijing.volceapi.com/runner" # public veFaas api
+## Dependabot PR policy
 
-jobs:
-  setup:
-    if: github.repository_owner == 'verl-project'
-    runs-on: ubuntu-latest
-    outputs:
-      runner-label: ${{ steps.create-runner.outputs.runner-label }}
-      task-id: ${{ steps.create-runner.outputs.task-id }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: create-runner
-        uses: volcengine/vemlp-github-runner@v1 
-        with:
-          mode: "create"
-          faas-url: "${{ env.DYNAMIC_RUNNER_URL }}"
-          image: "${{ env.DEFAULT_IMAGE }}"
+[`.github/dependabot.yml`](../dependabot.yml) explicitly pauses automated Python
+dependency PRs for the root manifests:
 
-  your_job:
-    needs: setup
-    runs-on: ["${{ needs.setup.outputs.runner-label || 'default-runner' }}"]
-    steps:
-      xxxx # your jobs
+- `open-pull-requests-limit: 0` disables version-update PRs.
+- `ignore: [{dependency-name: "*"}]` also pauses security-update PRs. An empty
+  `updates` list or a zero version-update limit alone does not configure this
+  security-update policy.
+- The required monthly schedule does not override these restrictions.
 
-  cleanup:
-    runs-on: ubuntu-latest
-    needs: [setup, your_job]
-    if: always()
-    steps:
-      - id: destroy-runner
-        uses: volcengine/vemlp-github-runner@v1
-        with:
-          mode: "destroy"
-          faas-url: "${{ env.DYNAMIC_RUNNER_URL }}"
-          task-id: "${{ needs.setup.outputs.task-id }}"
-```
+This does not disable Dependabot alerts or the dependency graph in repository
+settings. Review vulnerability alerts and update the pinned Python/CUDA stack
+manually. Remove the ignore rule to resume automated security-update PRs; raise
+the PR limit to resume version-update PRs after reviewing compatibility.
 
-### Model and Dataset
-To avoid CI relies on network, we pre-download dataset on a NFS on the CI machine. The path for models are \${HOME}/models and the path for dataset is \${HOME}/models/hf_data.
+GitHub documents these controls in the
+[Dependabot options reference](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference)
+and [security update configuration](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-security-updates).
+
+## Applying this cleanup
+
+The policy takes effect when these changes reach the default branch (`main`).
+The file changes do not themselves delete existing Dependabot PRs or branches,
+and historical failed checks remain in GitHub's run history. Close unwanted
+existing bot PRs and delete their branches separately after the policy is active.
+
+Update older development branches from `main` before opening more PRs so they do
+not reintroduce the archived workflow files. If required checks are configured
+later in branch protection or rulesets, use the active checks instead of retired
+verl job names.
