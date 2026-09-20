@@ -12,11 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+
 from .agent_loop import AgentLoopBase, AgentLoopManager, AgentLoopWorker, AsyncLLMServerManager
-from .codegym_agent_loop import CodeGymAgentLoop
-from .single_turn_agent_loop import SingleTurnAgentLoop
-from .tool_agent_loop import ToolAgentLoop
 
-_ = [SingleTurnAgentLoop, ToolAgentLoop, CodeGymAgentLoop]
+# Importing agent.tool_agent_loop starts by importing this package's base module.
+# Avoid importing it again while that module is still being initialized.
+_AGENT_MODULE_LOADING = "agent.tool_agent_loop" in sys.modules
+if not _AGENT_MODULE_LOADING:
+    from agent.tool_agent_loop import ToolAgentLoop
+    from .codegym_agent_loop import CodeGymAgentLoop
+    from .single_turn_agent_loop import SingleTurnAgentLoop
 
-__all__ = ["AgentLoopBase", "AgentLoopManager", "AsyncLLMServerManager", "AgentLoopWorker"]
+    _ = [SingleTurnAgentLoop, ToolAgentLoop, CodeGymAgentLoop]
+
+
+__all__ = ["AgentLoopBase", "AgentLoopManager", "AsyncLLMServerManager", "AgentLoopWorker", "ToolAgentLoop"]
+
+
+def __getattr__(name: str):
+    if name == "ToolAgentLoop":
+        from agent.tool_agent_loop import ToolAgentLoop
+
+        return ToolAgentLoop
+    if name == "SingleTurnAgentLoop":
+        from .single_turn_agent_loop import SingleTurnAgentLoop
+
+        return SingleTurnAgentLoop
+    if name == "CodeGymAgentLoop":
+        from .codegym_agent_loop import CodeGymAgentLoop
+
+        return CodeGymAgentLoop
+    raise AttributeError(name)

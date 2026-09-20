@@ -135,3 +135,6 @@ outputs
 
 # local developer model/tool configuration
 .qwen/
+
+# Local BCP environment values (the example template is tracked)
+/env/*.env
