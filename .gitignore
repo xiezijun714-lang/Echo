@@ -132,3 +132,6 @@ logs
 log
 outputs
 .historyval_outputs/
+
+# local developer model/tool configuration
+.qwen/
