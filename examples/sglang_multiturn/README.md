@@ -7,12 +7,6 @@ and required environment variables.
 
 ## Scripts
 
-- `run_qwen3-32b_bcp_echo-ca_4node.sh` — ECHO (synchronous)
-- `run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh` — ECHO (fully async)
-- `run_qwen3-32b_bcp_grpo_4node.sh` — GRPO baseline (synchronous)
-- `run_qwen3-32b_bcp_grpo_fully_async_4node.sh` — GRPO baseline (fully async)
-- `run_qwen3-30b-a3b_bcp_echo-ca_fully_async_4node.sh` — ECHO on the MoE backbone
-- `run_qwen3-30b-a3b_bcp_grpo_fully_async_4node.sh` — GRPO on the MoE backbone
 
 ## Usage
 
@@ -20,14 +14,8 @@ Export the required paths (`VENV_PATH`, `MODEL_PATH`, `RETRIEVER_MODEL_PATH`,
 `DATA_DIR`; see root README), then run from the project root:
 
 ```bash
-bash examples/sglang_multiturn/run_qwen3-32b_bcp_echo-ca_fully_async_4node.sh
+bash examples/sglang_multiturn/run_bcp_echo_graph_1node_blackwell.sh
 ```
-
-The scripts load an optional repository-root `.env` and always put the current
-checkout first on `PYTHONPATH`, even when reusing a virtualenv installed against
-an older verl checkout. Run a local-only startup check with
-`BCP_PREFLIGHT_ONLY=1 BCP_SKIP_REMOTE_CHECK=1`; remove the second flag to verify
-SSH access and shared paths on every training node.
 
 A dense retrieval service over the BrowseComp-Plus corpus
 (`browsecomp_retrieval_server.py`) is started automatically and health-checked by

@@ -67,8 +67,26 @@ def update_model_config(module_config, override_config_kwargs):
         override_config_kwargs: The kwargs to override the module config.
     """
     for key, val in override_config_kwargs.items():
+        if isinstance(module_config, dict):
+            if isinstance(val, dict):
+                nested_config = module_config.get(key)
+                if nested_config is None:
+                    nested_config = {}
+                    module_config[key] = nested_config
+                update_model_config(nested_config, val)
+            else:
+                module_config[key] = val
+            continue
         if isinstance(val, dict):
-            update_model_config(getattr(module_config, key), val)
+            nested_config = getattr(module_config, key, None)
+            # Some optional HF settings (for example ``rope_scaling``) are
+            # represented as ``None`` in the base config.  Materialize the
+            # mapping before applying nested overrides so launcher-provided
+            # dictionaries can enable those settings safely.
+            if nested_config is None:
+                nested_config = {}
+                setattr(module_config, key, nested_config)
+            update_model_config(nested_config, val)
         else:
             setattr(module_config, key, val)
 

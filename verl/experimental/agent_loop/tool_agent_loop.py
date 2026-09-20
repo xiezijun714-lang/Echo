@@ -143,6 +143,7 @@ class AgentData:
         # automatically retained recent context remains a prompt-only detail.
         self.current_model_selected_turn_ids: list[int] = []
         self.memory_graph_valid: bool = True
+        self.echo_graph_version: int = 2
         self.next_turn_id: int = 0
         # A turn that crossed the context boundary is still the active local
         # context. Keep it separate from turn_history until the next assistant
@@ -225,6 +226,9 @@ class ToolAgentLoop(AgentLoopBase):
         if not 0.0 < self.truncate_keep_ratio <= 1.0:
             raise ValueError(f"truncate_keep_ratio must be in (0, 1], got {self.truncate_keep_ratio}")
         self.echo_recent_turns = int(getattr(self.rollout_config.multi_turn, 'echo_recent_turns', 3) or 0)
+        self.echo_graph_version = int(getattr(self.rollout_config.multi_turn, 'echo_graph_version', 2) or 2)
+        if self.echo_graph_version not in {1, 2}:
+            raise ValueError(f"echo_graph_version must be 1 or 2, got {self.echo_graph_version}")
         self.selection_max_turns = int(getattr(self.rollout_config.multi_turn, 'selection_max_turns', 8) or 0)
         self.selection_max_new_tokens = int(
             getattr(self.rollout_config.multi_turn, 'selection_max_new_tokens', 1024) or 1024
@@ -342,6 +346,7 @@ class ToolAgentLoop(AgentLoopBase):
             interaction=interaction,
             interaction_kwargs=interaction_kwargs,
         )
+        agent_data.echo_graph_version = self.echo_graph_version
 
         # State machine loop
         state = AgentState.PENDING
@@ -655,7 +660,7 @@ class ToolAgentLoop(AgentLoopBase):
                     if item["index"] < len(agent_data.turn_history)
                     and agent_data.turn_history[item["index"]].get("turn_id") is not None
                 })
-                if self.context_compression_method == "echo_e2e":
+                if self.context_compression_method == "echo_e2e" and self.echo_graph_version == 2:
                     self._start_echo_selection_event(agent_data)
                 # ``working_context_length`` is the boundary that triggers a
                 # split, not a post-selection prompt cap. The reconstructed
@@ -724,8 +729,12 @@ class ToolAgentLoop(AgentLoopBase):
                     # This boundary-crossing turn is the first turn in the
                     # reconstructed segment. Replace its old local lineage with
                     # the explicit selector dependencies.
-                    agent_data.pending_turn["parent_edges"] = self._current_echo_parent_edges(agent_data)
-                    self._set_current_selection_target(agent_data, agent_data.pending_turn.get("turn_id"))
+                    if self.echo_graph_version == 1:
+                        agent_data.pending_turn.pop("parent_edges", None)
+                        agent_data.pending_turn["parent_turn_ids"] = self._current_echo_parent_turn_ids(agent_data)
+                    else:
+                        agent_data.pending_turn["parent_edges"] = self._current_echo_parent_edges(agent_data)
+                        self._set_current_selection_target(agent_data, agent_data.pending_turn.get("turn_id"))
                 # The carried local turn is part of the prompt even though it
                 # was not present in ``turn_history`` when selection ran. Add
                 # it to the active-context snapshot so the next turn and the
@@ -983,8 +992,11 @@ class ToolAgentLoop(AgentLoopBase):
                 "embedding": None,
                 "source_traj_idx": len(agent_data.trajectory_outputs),
                 "turn_id": agent_data.next_turn_id,
-                "parent_edges": self._current_echo_parent_edges(agent_data),
             }
+            if self.echo_graph_version == 1:
+                agent_data.pending_turn["parent_turn_ids"] = self._current_echo_parent_turn_ids(agent_data)
+            else:
+                agent_data.pending_turn["parent_edges"] = self._current_echo_parent_edges(agent_data)
             if not agent_data.current_segment_turn_ids:
                 self._set_current_selection_target(agent_data, agent_data.next_turn_id)
             agent_data.next_turn_id += 1
@@ -1944,9 +1956,11 @@ class ToolAgentLoop(AgentLoopBase):
         # Read hand-built/old in-memory entries without changing the format
         # emitted by the current loop. Real ECHO turns always carry the
         # ``parent_edges`` key, so new rollouts are version 2.
-        legacy_untyped_graph = bool(getattr(agent_data, "turn_history", [])) and not any(
-            "parent_edges" in turn for turn in getattr(agent_data, "turn_history", [])
-        ) and not getattr(agent_data, "echo_selection_events", [])
+        legacy_untyped_graph = getattr(agent_data, "echo_graph_version", 2) == 1 or (
+            bool(getattr(agent_data, "turn_history", []))
+            and not any("parent_edges" in turn for turn in getattr(agent_data, "turn_history", []))
+            and not getattr(agent_data, "echo_selection_events", [])
+        )
         for turn in getattr(agent_data, "turn_history", []):
             turn_id = turn.get("turn_id")
             if turn_id is None:
@@ -1961,8 +1975,8 @@ class ToolAgentLoop(AgentLoopBase):
             known_ids.add(turn_id)
             parent_edges = []
             seen_edges = set()
-            raw_parent_edges = turn.get("parent_edges", []) or []
-            if not raw_parent_edges and legacy_untyped_graph:
+            raw_parent_edges = [] if legacy_untyped_graph else (turn.get("parent_edges", []) or [])
+            if legacy_untyped_graph:
                 raw_parent_edges = [
                     {"turn_id": raw_id, "type": "turn"}
                     for raw_id in turn.get("parent_turn_ids", []) or []

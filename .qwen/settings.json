@@ -1,7 +1,4 @@
 {
-  "env": {
-    "BAILIAN_TOKEN_PLAN_API_KEY": "sk-sp-djI.k1uua3FEvbGeeZVvUmH_WBrpxI5Zozz_iANmFRi8m3jKDmF1J9mS0eDE-hH2Iael1p5QSzWERJDtpOyN6HahOt5CPAMuykYtyibgLUQLFeKaooimi0T6QWSkVtP_xTtR5kaUA8BliYNLkZuvPxO3GgAmHrEvRcFp7SItvt1wZ0sCTFWjhWg9SCMCe86MU_9e.MEUCIQD9bC_ZG2-8eHhsx6xihYe-NQbPTkZjDGCESotIUcrU-AIgFwkvn-RC1jElj7YlFJrBvzX-mzpwatWCXq5EPPE-_UM"
-  },
   "modelProviders": {
     "openai": [
       {

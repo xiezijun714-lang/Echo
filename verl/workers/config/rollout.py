@@ -116,6 +116,7 @@ class MultiTurnConfig(BaseConfig):
     selection_max_turns: int = 8  # Max model-selected turns before automatic recent-turn retention. <=0 disables cap.
     selection_max_new_tokens: int = 1024  # Decoder budget reserved for each ECHO selection generation.
     echo_recent_turns: int = 3  # Always retain the latest K turns in addition to selected turns.
+    echo_graph_version: int = 2  # 1 restores the original untyped ECHO graph; 2 uses typed sparse turn edges.
     semantic_selection_topk: int = 5  # Embedding-selected turns for semantic_selection. <=0 keeps recent turns only.
     semantic_selection_full_observation: bool = False  # Use raw tool observations instead of sum_last_turn findings.
     semantic_selection_full_observation_max_chars: int = 4000
