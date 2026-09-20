@@ -13,6 +13,7 @@ ulimit -u unlimited
 
 # Log directory
 PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+PACKAGE_ROOT="$(cd "${PROJECT_DIR}/.." && pwd)"
 source "${PROJECT_DIR}/examples/sglang_multiturn/bcp_runtime.sh"
 bcp_load_env "$PROJECT_DIR"
 bcp_enable_shell_trace
@@ -42,7 +43,17 @@ VALIDATION_DATA_DIR="${VALIDATION_DATA_DIR:-${PROJECT_DIR}/val_outputs/${EXPERIM
 exec > >(tee "$LOG_FILE") 2>&1
 
 # ---- Environment ----
-VENV_PATH="${VENV_PATH:?set VENV_PATH to your Python virtualenv directory}"
+VENV_PATH="${VENV_PATH:-${PACKAGE_ROOT}/venv_echo_blackwell}"
+MODEL_PATH="${MODEL_PATH:-${PACKAGE_ROOT}/model/Qwen3-32B}"
+RETRIEVER_MODEL_PATH="${RETRIEVER_MODEL_PATH:-${PACKAGE_ROOT}/model/Qwen3-Embedding-8B}"
+DATA_DIR="${DATA_DIR:-${PACKAGE_ROOT}/dataset/browsecomp-plus-context-folding}"
+RETRIEVER_DENSE_CACHE="${RETRIEVER_DENSE_CACHE:-${PACKAGE_ROOT}/browsecomp_dense_cache_tevatron.pkl}"
+RETRIEVER_MODE="${RETRIEVER_MODE:-dense}"
+RETRIEVER_DEVICE="${RETRIEVER_DEVICE:-cuda:7}"
+RETRIEVER_BATCH_SIZE="${RETRIEVER_BATCH_SIZE:-32}"
+RETRIEVER_MAX_CONCURRENT="${RETRIEVER_MAX_CONCURRENT:-32}"
+export VENV_PATH MODEL_PATH RETRIEVER_MODEL_PATH DATA_DIR RETRIEVER_DENSE_CACHE
+export RETRIEVER_MODE RETRIEVER_DEVICE RETRIEVER_BATCH_SIZE RETRIEVER_MAX_CONCURRENT
 source "${PROJECT_DIR}/examples/sglang_multiturn/bcp_node_utils.sh"
 select_bcp_nodes
 bcp_validate_head_node "$HEAD_IP"
@@ -73,8 +84,7 @@ if [[ "$RAY_DASHBOARD_AGENT_GRPC_PORT" =~ ^[0-9]+$ ]] && \
 fi
 export RAY_DASHBOARD_AGENT_GRPC_PORT
 
-# CUDA runtime selection: original recipe is CUDA 12/H800; Blackwell nodes use
-# CUDA 13 libraries and the system NCCL 2.29 ABI (mirrors the GRPO launcher).
+# CUDA 13 runtime selection for Blackwell/SM100.
 CUDNN_LIB="${VENV_PATH}/lib/python3.10/site-packages/nvidia/cudnn/lib"
 CUDA_RUNTIME_LIB="${VENV_PATH}/lib/python3.10/site-packages/nvidia/cuda_runtime/lib"
 CUDA13_LIB="${VENV_PATH}/lib/python3.10/site-packages/nvidia/cu13/lib"
@@ -107,8 +117,11 @@ export RAY_enable_open_telemetry=0
 MODEL_PATH="${MODEL_PATH:?set MODEL_PATH to the policy model directory (e.g. Qwen3-32B)}"
 DATA_DIR="${DATA_DIR:?set DATA_DIR to the BrowseComp-Plus processed dataset directory}"
 TRAIN_FILE=${TRAIN_FILE:-${DATA_DIR}/train.paper.parquet}
-VAL_FILE=${VAL_FILE:-${DATA_DIR}/test.paper.parquet}
-RETRIEVER_MODEL_PATH="${RETRIEVER_MODEL_PATH:?set RETRIEVER_MODEL_PATH to the embedding model directory (e.g. Qwen3-Embedding-8B)}"
+if [ -z "${VAL_FILE:-}" ]; then
+    VAL_FILE="[${DATA_DIR}/test.easy.paper.labeled.parquet"
+    VAL_FILE+=",${DATA_DIR}/test.medium.paper.labeled.parquet"
+    VAL_FILE+=",${DATA_DIR}/test.hard.paper.labeled.parquet]"
+fi
 bcp_resolve_retriever_data "$DATA_DIR"
 bcp_validate_training_paths "$PROJECT_DIR" "$VENV_PATH" "$MODEL_PATH" "$TRAIN_FILE" "$VAL_FILE" "$RETRIEVER_MODEL_PATH" qwen3
 bcp_validate_remote_paths "$PROJECT_DIR" "$VENV_PATH" "$MODEL_PATH" "$TRAIN_FILE" "$VAL_FILE"

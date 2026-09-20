@@ -247,10 +247,10 @@ variables (see the top of each script for the full list). Key knobs:
 | `SEMANTIC_SELECTION_FULL_OBSERVATION` | `False` | When using `semantic_selection`, retrieve full observations instead of compact findings |
 | `ECHO_CREDIT_PENALTY_RATIO` | `0.0` | Down-weight (vs. 1.0 for credited tokens) applied to non-credited tokens |
 
-Examples reproducing paper ablations (all on top of the ECHO async script):
+Examples using the single-node ECHO-Graph launcher:
 
 ```bash
-# ✅ Full ECHO (paper main): learned selection + provenance-guided token credit
+# ✅ ECHO-Graph: learned selection + graph credit assignment
 bash examples/sglang_multiturn/run_bcp_echo_graph_1node_blackwell.sh
 
 # 🔁 Ablation: static semantic top-k retrieval instead of learned selection
@@ -265,8 +265,7 @@ CONTEXT_COMPRESSION_METHOD=semantic_selection SEMANTIC_SELECTION_FULL_OBSERVATIO
 ECHO_CREDIT_METHOD=none \
   bash examples/sglang_multiturn/run_bcp_echo_graph_1node_blackwell.sh
 
-# 📊 SUPO baseline (rolling summarization) — synchronous script
-bash examples/sglang_multiturn/run_bcp_echo_graph_1node_blackwell.sh
+# The same launcher accepts the standard context/credit ablation variables.
 ```
 
 ---

@@ -7,6 +7,7 @@ and required environment variables.
 
 ## Scripts
 
+- `run_bcp_echo_graph_1node_blackwell.sh` — ECHO-Graph on one Blackwell node
 
 ## Usage
 
