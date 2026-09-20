@@ -20,7 +20,7 @@ particular, once historical observations are collapsed into a single state,
 outcome-based RL has no explicit route for assigning delayed credit back to the
 original evidence turns that later decisions conditioned on.
 
-ECHO addresses this with two coupled ideas:
+ECHO addresses this with two complementary ideas:
 
 - ✂️ **Prune to Act** — each completed turn is compressed into a *source-indexed*
   memory and retained in a persistent, non-collapsing archive. A bounded policy
